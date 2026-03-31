@@ -1,0 +1,17 @@
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\activity\package-info.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\alert\package-info.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\auth\package-info.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\BackendApplication.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\common\controller\HealthController.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\common\service\HealthService.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\config\SecurityConfig.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\config\SeedDataRunner.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\dashboard\package-info.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\exception\GlobalExceptionHandler.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\risk\package-info.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\entity\Role.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\entity\RoleType.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\entity\User.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\repository\RoleRepository.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\repository\UserRepository.java
+C:\Users\harsh\Sentinel-X\backend\src\main\java\com\sentinelx\user\service\RoleService.java
