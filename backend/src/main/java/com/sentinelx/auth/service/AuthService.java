@@ -30,6 +30,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
         UserRepository userRepository,
@@ -37,7 +38,8 @@ public class AuthService {
         PasswordEncoder passwordEncoder,
         AuthenticationManager authenticationManager,
         JwtTokenProvider jwtTokenProvider,
-        RefreshTokenService refreshTokenService
+        RefreshTokenService refreshTokenService,
+        EmailVerificationService emailVerificationService
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -45,6 +47,7 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.refreshTokenService = refreshTokenService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -61,8 +64,10 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setActive(true);
         user.setRole(defaultRole);
+        user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
+        emailVerificationService.sendVerification(savedUser);
         return createAuthResponse(savedUser, null);
     }
 

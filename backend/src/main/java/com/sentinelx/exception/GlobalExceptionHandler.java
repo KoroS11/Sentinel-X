@@ -2,6 +2,7 @@ package com.sentinelx.exception;
 
 import com.sentinelx.auth.exception.DuplicateEmailException;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
+import com.sentinelx.auth.exception.InvalidEmailVerificationTokenException;
 import com.sentinelx.auth.exception.InvalidPasswordResetTokenException;
 import com.sentinelx.auth.exception.InvalidRefreshTokenException;
 import java.time.Instant;
@@ -36,6 +37,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(InvalidEmailVerificationTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidEmailVerificationToken(
+        InvalidEmailVerificationTokenException ex
+    ) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now().toString());
         body.put("status", HttpStatus.UNAUTHORIZED.value());

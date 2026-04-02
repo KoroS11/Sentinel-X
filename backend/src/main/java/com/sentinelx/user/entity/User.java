@@ -35,6 +35,9 @@ public class User {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
