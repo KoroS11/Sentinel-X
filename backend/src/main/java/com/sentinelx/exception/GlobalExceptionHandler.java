@@ -1,5 +1,7 @@
 package com.sentinelx.exception;
 
+import com.sentinelx.alert.exception.AlertAccessDeniedException;
+import com.sentinelx.alert.exception.AlertNotFoundException;
 import com.sentinelx.auth.exception.DuplicateEmailException;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
 import com.sentinelx.auth.exception.InvalidEmailVerificationTokenException;
@@ -16,6 +18,24 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AlertNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleAlertNotFound(AlertNotFoundException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.NOT_FOUND.value());
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(AlertAccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAlertAccessDenied(AlertAccessDeniedException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
 
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateEmail(DuplicateEmailException ex) {

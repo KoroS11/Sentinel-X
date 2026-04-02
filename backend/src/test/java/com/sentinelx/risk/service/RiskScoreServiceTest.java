@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinelx.activity.repository.ActivityRepository;
+import com.sentinelx.alert.service.AlertService;
 import com.sentinelx.risk.dto.RiskScoreResponse;
 import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.risk.repository.RiskScoreRepository;
@@ -23,7 +24,7 @@ import org.springframework.context.annotation.Import;
     "spring.flyway.enabled=false",
     "spring.jpa.hibernate.ddl-auto=create-drop"
 })
-@Import({RiskScoreService.class, BasicRiskScoringStrategy.class})
+@Import({RiskScoreService.class, BasicRiskScoringStrategy.class, AlertService.class})
 class RiskScoreServiceTest {
 
     @Autowired
