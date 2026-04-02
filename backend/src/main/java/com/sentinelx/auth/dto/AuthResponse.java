@@ -2,6 +2,7 @@ package com.sentinelx.auth.dto;
 
 public record AuthResponse(
     String token,
-    String username
+    String username,
+    String refreshToken
 ) {
 }
