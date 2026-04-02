@@ -10,25 +10,33 @@ import org.springframework.security.core.userdetails.UserDetails;
 public class CustomUserDetails implements UserDetails {
 
     private final User user;
+    private final String username;
+    private final String password;
+    private final boolean enabled;
+    private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomUserDetails(User user) {
         this.user = user;
+        this.username = user.getUsername();
+        this.password = user.getPasswordHash();
+        this.enabled = user.isActive();
+        String roleName = user.getRole().getName().name();
+        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + roleName));
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        String roleName = user.getRole().getName().name();
-        return List.of(new SimpleGrantedAuthority("ROLE_" + roleName));
+        return authorities;
     }
 
     @Override
     public String getPassword() {
-        return user.getPasswordHash();
+        return password;
     }
 
     @Override
     public String getUsername() {
-        return user.getUsername();
+        return username;
     }
 
     @Override
@@ -48,7 +56,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return user.isActive();
+        return enabled;
     }
 
     public User getUser() {
