@@ -5,6 +5,7 @@ import com.sentinelx.auth.exception.InvalidRefreshTokenException;
 import com.sentinelx.auth.repository.RefreshTokenRepository;
 import com.sentinelx.user.entity.User;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,9 @@ public class RefreshTokenService {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(UUID.randomUUID().toString());
         refreshToken.setUser(user);
-        refreshToken.setExpiryDate(LocalDateTime.now().plusMillis(refreshTokenProperties.getRefreshExpirationMs()));
+        refreshToken.setExpiryDate(
+            LocalDateTime.now().plus(refreshTokenProperties.getRefreshExpirationMs(), ChronoUnit.MILLIS)
+        );
         refreshToken.setRevoked(false);
         return refreshTokenRepository.save(refreshToken);
     }
