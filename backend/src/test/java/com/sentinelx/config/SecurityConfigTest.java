@@ -30,7 +30,8 @@ import org.springframework.test.web.servlet.MvcResult;
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.flyway.enabled=false",
     "jwt.secret=security_config_test_secret_at_least_32_chars",
-    "jwt.expiration-ms=3600000"
+    "jwt.expiration-ms=3600000",
+    "jwt.refresh-expiration-ms=604800000"
 })
 class SecurityConfigTest {
 
