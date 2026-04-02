@@ -1,6 +1,6 @@
 #  SentinelX – Real-Time Insider Threat Monitoring System
 
-> An enterprise-grade, full-stack application for monitoring internal user activities, calculating behavioral risk scores, and generating automated security alerts — built with Java Spring Boot, PostgreSQL, and React.js.
+> An enterprise-grade, full-stack application for monitoring internal user activities, calculating behavioral risk scores, and generating automated security alerts — built with Java Spring Boot, PostgreSQL, and React.js..
 
 ---
 
