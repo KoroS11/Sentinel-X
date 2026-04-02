@@ -24,6 +24,9 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .findFirst())
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + usernameOrEmail));
 
+            // Force role initialization before leaving repository context.
+            user.getRole().getName();
+
         return new CustomUserDetails(user);
     }
 }
