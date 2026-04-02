@@ -8,7 +8,6 @@ import com.sentinelx.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,7 +29,6 @@ public class RiskController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public RiskScoreResponse getMyRiskScore(Authentication authentication) {
         User user = resolveCurrentUser(authentication);
         return riskScoreService.getLatestRiskScore(user)
@@ -38,7 +36,6 @@ public class RiskController {
     }
 
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public RiskScoreResponse getRiskForUser(@PathVariable Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
@@ -48,7 +45,6 @@ public class RiskController {
 
     @GetMapping("/history/me")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public Page<RiskScoreResponse> getMyRiskHistory(Authentication authentication, Pageable pageable) {
         User user = resolveCurrentUser(authentication);
         return riskScoreService.getRiskHistory(user, pageable);
