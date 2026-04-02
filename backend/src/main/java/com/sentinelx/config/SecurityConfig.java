@@ -42,6 +42,7 @@ public class SecurityConfig {
             .anonymous(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/verify-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/health").permitAll()
                 .anyRequest().authenticated()
             )
