@@ -39,6 +39,7 @@ class AuthControllerTest {
         registry.add("spring.flyway.enabled", () -> "false");
         registry.add("jwt.secret", () -> TEST_SECRET);
         registry.add("jwt.expiration-ms", () -> "3600000");
+        registry.add("jwt.refresh-expiration-ms", () -> "604800000");
     }
 
     @Test
