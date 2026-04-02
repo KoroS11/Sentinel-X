@@ -6,6 +6,7 @@ import com.sentinelx.dashboard.dto.DashboardSummaryResponse;
 import com.sentinelx.dashboard.service.DashboardService;
 import com.sentinelx.user.entity.User;
 import com.sentinelx.user.repository.UserRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,12 +25,14 @@ public class DashboardController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public DashboardSummaryResponse getMyDashboard(Authentication authentication) {
         User user = resolveCurrentUser(authentication);
         return dashboardService.getUserDashboard(user);
     }
 
     @GetMapping("/admin")
+    @PreAuthorize("hasAuthority(T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public AdminDashboardResponse getAdminDashboard() {
         return dashboardService.getAdminDashboard();
     }
