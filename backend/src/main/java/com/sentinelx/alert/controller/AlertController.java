@@ -9,7 +9,6 @@ import com.sentinelx.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,7 +31,6 @@ public class AlertController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public Page<AlertResponse> getMyAlerts(
         Authentication authentication,
         @RequestParam(value = "status", required = false) AlertStatus status,
@@ -44,7 +42,6 @@ public class AlertController {
 
     @PatchMapping("/{id}/acknowledge")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public AlertResponse acknowledgeAlert(@PathVariable Long id, Authentication authentication) {
         User user = resolveCurrentUser(authentication);
         return alertService.acknowledgeAlert(id, user);
@@ -52,14 +49,12 @@ public class AlertController {
 
     @PatchMapping("/{id}/resolve")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public AlertResponse resolveAlert(@PathVariable Long id, Authentication authentication) {
         User user = resolveCurrentUser(authentication);
         return alertService.resolveAlert(id, user);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public Page<AlertResponse> getAllAlerts(
         @RequestParam(value = "status", required = false) AlertStatus status,
         Pageable pageable
