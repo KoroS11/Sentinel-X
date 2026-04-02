@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sentinelx.auth.entity.RefreshToken;
+import com.sentinelx.auth.repository.RefreshTokenRepository;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +31,9 @@ class AuthControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
 
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
@@ -85,7 +91,102 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(login)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.token").isNotEmpty())
+            .andExpect(jsonPath("$.refreshToken").isNotEmpty())
             .andExpect(jsonPath("$.username").value("bob"));
+    }
+
+    @Test
+    void refreshWithValidTokenReturnsNewAccessAndRefreshTokens() throws Exception {
+        Map<String, String> register = registerRequest("refreshUser", "refresh@example.com", "Password@123");
+        Map<String, String> login = loginRequest("refresh@example.com", "Password@123");
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(register)))
+            .andExpect(status().isOk());
+
+        String oldRefreshToken = extractFieldFromResponse(
+            mockMvc.perform(post("/api/auth/login")
+                    .contentType("application/json")
+                    .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            "refreshToken"
+        );
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(refreshRequest(oldRefreshToken))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").isNotEmpty())
+            .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+    }
+
+    @Test
+    void refreshWithExpiredTokenReturnsUnauthorized() throws Exception {
+        String refreshTokenValue = issueRefreshTokenFor("expiredUser", "expired@example.com");
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue).orElseThrow();
+        refreshToken.setExpiryDate(LocalDateTime.now().minusMinutes(1));
+        refreshTokenRepository.save(refreshToken);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(refreshRequest(refreshTokenValue))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshWithRevokedTokenReturnsUnauthorized() throws Exception {
+        String refreshTokenValue = issueRefreshTokenFor("revokedUser", "revoked@example.com");
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue).orElseThrow();
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(refreshRequest(refreshTokenValue))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshWithNonexistentTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(refreshRequest("missing-token"))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesAllTokensAndSubsequentRefreshReturnsUnauthorized() throws Exception {
+        Map<String, String> register = registerRequest("logoutUser", "logout@example.com", "Password@123");
+        Map<String, String> login = loginRequest("logout@example.com", "Password@123");
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(register)))
+            .andExpect(status().isOk());
+
+        String loginResponse = mockMvc.perform(post("/api/auth/login")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(login)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        String accessToken = extractFieldFromResponse(loginResponse, "token");
+        String refreshToken = extractFieldFromResponse(loginResponse, "refreshToken");
+
+        mockMvc.perform(post("/api/auth/logout")
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(refreshRequest(refreshToken))))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -125,5 +226,35 @@ class AuthControllerTest {
         request.put("email", email);
         request.put("password", password);
         return request;
+    }
+
+    private Map<String, String> refreshRequest(String refreshToken) {
+        Map<String, String> request = new HashMap<>();
+        request.put("refreshToken", refreshToken);
+        return request;
+    }
+
+    private String issueRefreshTokenFor(String username, String email) throws Exception {
+        Map<String, String> register = registerRequest(username, email, "Password@123");
+        Map<String, String> login = loginRequest(email, "Password@123");
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(register)))
+            .andExpect(status().isOk());
+
+        String loginResponse = mockMvc.perform(post("/api/auth/login")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(login)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        return extractFieldFromResponse(loginResponse, "refreshToken");
+    }
+
+    private String extractFieldFromResponse(String content, String fieldName) throws Exception {
+        return objectMapper.readTree(content).path(fieldName).asText();
     }
 }

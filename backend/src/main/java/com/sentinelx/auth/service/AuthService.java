@@ -3,9 +3,11 @@ package com.sentinelx.auth.service;
 import com.sentinelx.auth.dto.AuthResponse;
 import com.sentinelx.auth.dto.LoginRequest;
 import com.sentinelx.auth.dto.RegisterRequest;
+import com.sentinelx.auth.entity.RefreshToken;
 import com.sentinelx.auth.exception.DuplicateEmailException;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
 import com.sentinelx.auth.jwt.JwtTokenProvider;
+import com.sentinelx.auth.refresh.RefreshTokenService;
 import com.sentinelx.user.entity.Role;
 import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
@@ -27,19 +29,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(
         UserRepository userRepository,
         RoleRepository roleRepository,
         PasswordEncoder passwordEncoder,
         AuthenticationManager authenticationManager,
-        JwtTokenProvider jwtTokenProvider
+        JwtTokenProvider jwtTokenProvider,
+        RefreshTokenService refreshTokenService
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenService = refreshTokenService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -58,12 +63,7 @@ public class AuthService {
         user.setRole(defaultRole);
 
         User savedUser = userRepository.save(user);
-        String token = jwtTokenProvider.generateToken(
-            savedUser.getUsername(),
-            List.of(savedUser.getRole().getName().name())
-        );
-
-        return new AuthResponse(token, savedUser.getUsername());
+        return createAuthResponse(savedUser, null);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -77,16 +77,25 @@ public class AuthService {
             throw new InvalidCredentialsException("Authentication failed.");
         }
 
-        User user = userRepository.findAll().stream()
-            .filter(candidate -> request.email().equalsIgnoreCase(candidate.getEmail()))
-            .findFirst()
+        User user = userRepository.findByEmail(request.email())
             .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password."));
 
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return createAuthResponse(user, refreshToken.getToken());
+    }
+
+    public void logout(String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new InvalidCredentialsException("Invalid user context."));
+        refreshTokenService.revokeAllUserTokens(user);
+    }
+
+    public AuthResponse createAuthResponse(User user, String refreshToken) {
         String token = jwtTokenProvider.generateToken(
             user.getUsername(),
             List.of(user.getRole().getName().name())
         );
-
-        return new AuthResponse(token, user.getUsername());
+        return new AuthResponse(token, user.getUsername(), refreshToken);
     }
 }
