@@ -75,6 +75,16 @@ public class AlertService {
         return alertRepository.findAllByStatus(status, pageable).map(AlertResponse::fromEntity);
     }
 
+    @Transactional(readOnly = true)
+    public long countAlertsForUserByStatus(User user, AlertStatus status) {
+        return alertRepository.countByUserAndStatus(user, status);
+    }
+
+    @Transactional(readOnly = true)
+    public long countAlertsForUserBySeverity(User user, AlertSeverity severity) {
+        return alertRepository.countByUserAndSeverity(user, severity);
+    }
+
     private Alert findAlert(Long alertId) {
         return alertRepository.findById(alertId)
             .orElseThrow(() -> new AlertNotFoundException("Alert not found."));
