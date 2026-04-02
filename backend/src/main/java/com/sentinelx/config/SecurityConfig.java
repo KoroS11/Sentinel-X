@@ -2,6 +2,7 @@ package com.sentinelx.config;
 
 import com.sentinelx.auth.jwt.JwtAuthenticationFilter;
 import com.sentinelx.auth.security.CustomUserDetailsService;
+import com.sentinelx.auth.security.RoleConstants;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,6 +11,7 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,6 +23,7 @@ import org.springframework.http.HttpStatus;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -43,14 +46,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/verify-email").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/activities/entity/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/activities/entity/**").hasAnyAuthority(RoleConstants.ADMIN, RoleConstants.ANALYST)
                 .requestMatchers(HttpMethod.GET, "/api/activities/me").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/risk/user/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/risk/user/**").hasAnyAuthority(RoleConstants.ADMIN, RoleConstants.ANALYST)
                 .requestMatchers(HttpMethod.GET, "/api/risk/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/alerts").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/alerts").hasAnyAuthority(RoleConstants.ADMIN, RoleConstants.ANALYST)
                 .requestMatchers(HttpMethod.GET, "/api/alerts/me").authenticated()
                 .requestMatchers(HttpMethod.PATCH, "/api/alerts/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/dashboard/admin").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/dashboard/admin").hasAuthority(RoleConstants.ADMIN)
                 .requestMatchers(HttpMethod.GET, "/api/dashboard/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/health").permitAll()
                 .anyRequest().authenticated()
