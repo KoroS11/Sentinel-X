@@ -15,4 +15,9 @@ public class DevEmailService implements EmailService {
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
         LOGGER.info("Password reset email queued for {} with link {}", toEmail, resetLink);
     }
+
+    @Override
+    public void sendVerificationEmail(String toEmail, String verificationLink) {
+        LOGGER.info("Verification email queued for {} with link {}", toEmail, verificationLink);
+    }
 }
