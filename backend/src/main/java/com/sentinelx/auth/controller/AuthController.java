@@ -15,6 +15,7 @@ import com.sentinelx.auth.service.EmailVerificationService;
 import com.sentinelx.auth.service.PasswordResetService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,16 +52,19 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
     }
 
     @PostMapping("/login")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 
     @PostMapping("/refresh")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
         RefreshToken rotatedRefreshToken = refreshTokenService.rotateRefreshToken(request.refreshToken());
         AuthResponse authResponse = authService.createAuthResponse(
@@ -71,6 +75,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
     public ResponseEntity<Void> logout(
         Authentication authentication,
         @RequestHeader(value = "Authorization", required = false) String authorization
@@ -84,18 +89,21 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody PasswordResetRequest request) {
         passwordResetService.initiateReset(request.email());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/reset-password")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody NewPasswordRequest request) {
         passwordResetService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/verify-email")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Void> verifyEmail(@RequestParam("token") String token) {
         emailVerificationService.verifyEmail(token);
         return ResponseEntity.ok().build();
