@@ -6,6 +6,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -17,15 +18,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(usernameOrEmail)
-            .or(() -> userRepository.findAll().stream()
-                .filter(candidate -> usernameOrEmail.equalsIgnoreCase(candidate.getEmail()))
-                .findFirst())
+            .or(() -> userRepository.findByEmail(usernameOrEmail))
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + usernameOrEmail));
 
-            // Force role initialization before leaving repository context.
-            user.getRole().getName();
+        // Force role initialization before leaving repository context.
+        user.getRole().getName();
 
         return new CustomUserDetails(user);
     }

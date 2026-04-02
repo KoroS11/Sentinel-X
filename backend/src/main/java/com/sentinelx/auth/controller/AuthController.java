@@ -2,13 +2,16 @@ package com.sentinelx.auth.controller;
 
 import com.sentinelx.auth.dto.AuthResponse;
 import com.sentinelx.auth.dto.LoginRequest;
+import com.sentinelx.auth.dto.NewPasswordRequest;
 import com.sentinelx.auth.dto.RefreshRequest;
 import com.sentinelx.auth.dto.RegisterRequest;
+import com.sentinelx.auth.dto.PasswordResetRequest;
 import com.sentinelx.auth.entity.RefreshToken;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
 import com.sentinelx.auth.jwt.JwtTokenProvider;
 import com.sentinelx.auth.refresh.RefreshTokenService;
 import com.sentinelx.auth.service.AuthService;
+import com.sentinelx.auth.service.PasswordResetService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.ResponseEntity;
@@ -27,15 +30,18 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final PasswordResetService passwordResetService;
 
     public AuthController(
         AuthService authService,
         RefreshTokenService refreshTokenService,
-        JwtTokenProvider jwtTokenProvider
+        JwtTokenProvider jwtTokenProvider,
+        PasswordResetService passwordResetService
     ) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -68,6 +74,18 @@ public class AuthController {
             throw new InvalidCredentialsException("Authentication is required for logout.");
         }
         authService.logout(username);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.initiateReset(request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody NewPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok().build();
     }
 
