@@ -2,6 +2,7 @@ package com.sentinelx.risk.service;
 
 import com.sentinelx.activity.entity.Activity;
 import com.sentinelx.activity.repository.ActivityRepository;
+import com.sentinelx.alert.service.AlertService;
 import com.sentinelx.risk.dto.RiskScoreResponse;
 import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.risk.repository.RiskScoreRepository;
@@ -23,6 +24,7 @@ public class RiskScoreService {
     private static final String SORT_BY_CREATED_AT = "createdAt";
     private static final String SORT_BY_CALCULATED_AT = "calculatedAt";
     private static final int HIGH_RISK_THRESHOLD = 60;
+    private static final int ALERT_TRIGGER_SCORE_THRESHOLD = 60;
 
     private static final String REASON_NO_RECENT_ACTIVITY = "No recent activity detected.";
     private static final String REASON_ELEVATED_ACTIVITY =
@@ -33,15 +35,18 @@ public class RiskScoreService {
     private final ActivityRepository activityRepository;
     private final RiskScoreRepository riskScoreRepository;
     private final RiskScoringStrategy riskScoringStrategy;
+    private final AlertService alertService;
 
     public RiskScoreService(
         ActivityRepository activityRepository,
         RiskScoreRepository riskScoreRepository,
-        RiskScoringStrategy riskScoringStrategy
+        RiskScoringStrategy riskScoringStrategy,
+        AlertService alertService
     ) {
         this.activityRepository = activityRepository;
         this.riskScoreRepository = riskScoreRepository;
         this.riskScoringStrategy = riskScoringStrategy;
+        this.alertService = alertService;
     }
 
     @Transactional
@@ -63,7 +68,13 @@ public class RiskScoreService {
         riskScore.setScore(score);
         riskScore.setReason(resolveReason(score, recentActivities));
 
-        return RiskScoreResponse.fromEntity(riskScoreRepository.save(riskScore));
+        RiskScore savedRiskScore = riskScoreRepository.save(riskScore);
+
+        if (savedRiskScore.getScore() >= ALERT_TRIGGER_SCORE_THRESHOLD) {
+            alertService.generateAlert(user, savedRiskScore);
+        }
+
+        return RiskScoreResponse.fromEntity(savedRiskScore);
     }
 
     @Transactional(readOnly = true)
