@@ -11,12 +11,15 @@ import com.sentinelx.auth.exception.InvalidCredentialsException;
 import com.sentinelx.auth.jwt.JwtTokenProvider;
 import com.sentinelx.auth.refresh.RefreshTokenService;
 import com.sentinelx.auth.service.AuthService;
+import com.sentinelx.auth.service.EmailVerificationService;
 import com.sentinelx.auth.service.PasswordResetService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,17 +34,20 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthController(
         AuthService authService,
         RefreshTokenService refreshTokenService,
         JwtTokenProvider jwtTokenProvider,
-        PasswordResetService passwordResetService
+        PasswordResetService passwordResetService,
+        EmailVerificationService emailVerificationService
     ) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     @PostMapping("/register")
@@ -86,6 +92,12 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody NewPasswordRequest request) {
         passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@RequestParam("token") String token) {
+        emailVerificationService.verifyEmail(token);
         return ResponseEntity.ok().build();
     }
 
