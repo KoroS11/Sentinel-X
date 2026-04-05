@@ -1,4 +1,4 @@
-# SentinelX Backend Documentation
+﻿# SentinelX Backend Documentation
 
 ## Section 1 - Project Overview
 
@@ -1311,3 +1311,4 @@ Dashboard summary response:
 - Always merge using --no-ff to preserve integration history.
 - Never force push to main.
 - Run full test suite before merging into develop.
+
