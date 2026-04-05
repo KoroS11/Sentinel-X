@@ -1,6 +1,7 @@
 package com.sentinelx.exception;
 
 import com.sentinelx.alert.exception.AlertAccessDeniedException;
+import com.sentinelx.alert.exception.AlertInvalidStatusTransitionException;
 import com.sentinelx.alert.exception.AlertNotFoundException;
 import com.sentinelx.auth.exception.DuplicateEmailException;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
@@ -38,6 +39,17 @@ public class GlobalExceptionHandler {
         body.put("status", HttpStatus.FORBIDDEN.value());
         body.put("error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(AlertInvalidStatusTransitionException.class)
+    public ResponseEntity<Map<String, Object>> handleAlertInvalidStatusTransition(
+        AlertInvalidStatusTransitionException ex
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(DuplicateEmailException.class)
