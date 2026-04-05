@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -223,6 +224,46 @@ class AlertServiceTest {
         alertService.deleteAlert(alert.id(), admin);
 
         assertEquals(0, alertRepository.count());
+    }
+
+    @Test
+    void getAlertByIdForOwnerReturnsAlert() {
+        User owner = createUserWithRole("owner-view", "owner-view@example.com", RoleType.EMPLOYEE);
+        AlertResponse created = alertService.generateAlert(owner, createRiskScore(owner, 81, "risk"));
+
+        AlertResponse fetched = alertService.getAlertById(created.id(), owner);
+
+        assertEquals(created.id(), fetched.id());
+        assertEquals(owner.getId(), fetched.userId());
+    }
+
+    @Test
+    void getAlertByIdWithUnknownIdThrowsResourceNotFoundException() {
+        User owner = createUserWithRole("owner-view-nf", "owner-view-nf@example.com", RoleType.EMPLOYEE);
+
+        assertThrows(ResourceNotFoundException.class, () -> alertService.getAlertById(9999L, owner));
+    }
+
+    @Test
+    void updateAlertStatusWithUnknownIdThrowsResourceNotFoundException() {
+        User owner = createUserWithRole("owner-update-nf", "owner-update-nf@example.com", RoleType.EMPLOYEE);
+
+        assertThrows(
+            ResourceNotFoundException.class,
+            () -> alertService.updateAlertStatus(9999L, AlertStatus.UNDER_INVESTIGATION, owner)
+        );
+    }
+
+    @Test
+    void assignAlertByEmployeeThrowsAccessDeniedException() {
+        User employee = createUserWithRole("employee-assign", "employee-assign@example.com", RoleType.EMPLOYEE);
+        User owner = createUserWithRole("owner-assign", "owner-assign@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 86, "risk"));
+
+        assertThrows(
+            AccessDeniedException.class,
+            () -> alertService.assignAlert(alert.id(), owner.getId(), employee)
+        );
     }
 
     private User createUserWithRole(String username, String email, RoleType roleType) {
