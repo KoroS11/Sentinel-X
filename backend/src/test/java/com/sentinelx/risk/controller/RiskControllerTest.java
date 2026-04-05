@@ -35,6 +35,7 @@ class RiskControllerTest {
     private static final String TEST_SECRET =
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     private static final String DEFAULT_PASSWORD = "Password@123";
+    private static final long UNKNOWN_USER_ID = 9999L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -153,6 +154,32 @@ class RiskControllerTest {
     }
 
     @Test
+    void getRiskByUserIdWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/risk/{userId}", 1L))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getRiskByUserIdWithInvalidInputReturnsBadRequest() throws Exception {
+        User admin = createUserWithRole("admin-bad", "admin-bad@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}", "invalid")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getRiskByUserIdWithUnknownUserReturnsNotFound() throws Exception {
+        User admin = createUserWithRole("admin-nf", "admin-nf@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}", UNKNOWN_USER_ID)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
     void getRiskHistoryByUserIdWithAdminTokenReturnsOkPaginated() throws Exception {
         User admin = createUserWithRole("admin-h", "admin-h@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
         User target = createUserWithRole("employee-h", "employee-h@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
@@ -163,6 +190,37 @@ class RiskControllerTest {
                 .param("size", "10")
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRiskHistoryByUserIdWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/risk/{userId}/history", 1L))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getRiskHistoryByUserIdWithDifferentEmployeeReturnsForbidden() throws Exception {
+        User requester = createUserWithRole("employee-h-req", "employee-h-req@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        User target = createUserWithRole("employee-h-target", "employee-h-target@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        String requesterToken = loginAndGetAccessToken(requester.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}/history", target.getId())
+                .param("page", "0")
+                .param("size", "10")
+                .header("Authorization", "Bearer " + requesterToken))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getRiskHistoryByUserIdWithUnknownUserReturnsNotFound() throws Exception {
+        User admin = createUserWithRole("admin-h-nf", "admin-h-nf@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}/history", UNKNOWN_USER_ID)
+                .param("page", "0")
+                .param("size", "10")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNotFound());
     }
 
     private void registerUser(String username, String email, String password) throws Exception {
