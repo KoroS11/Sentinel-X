@@ -133,6 +133,18 @@ class DashboardControllerTest {
     }
 
     @Test
+    void getDashboardSummaryWithEmployeeTokenReturnsOk() throws Exception {
+        User employee = createUserWithRole("employee-summary", "employee-summary@example.com", "Password@123", RoleType.EMPLOYEE);
+        String employeeToken = loginAndGetAccessToken(employee.getEmail(), "Password@123");
+
+        mockMvc.perform(get("/api/dashboard/summary")
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalActivities").exists())
+            .andExpect(jsonPath("$.openAlertsCount").exists());
+    }
+
+    @Test
     void getRiskTrendsWithEmployeeTokenReturnsForbidden() throws Exception {
         User employee = createUserWithRole("employee-2", "employee-2@example.com", "Password@123", RoleType.EMPLOYEE);
         String employeeToken = loginAndGetAccessToken(employee.getEmail(), "Password@123");
@@ -140,6 +152,12 @@ class DashboardControllerTest {
         mockMvc.perform(get("/api/dashboard/risk-trends")
                 .header("Authorization", "Bearer " + employeeToken))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getRiskTrendsWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/dashboard/risk-trends"))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
