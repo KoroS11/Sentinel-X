@@ -1,6 +1,7 @@
 package com.sentinelx.risk.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinelx.activity.repository.ActivityRepository;
@@ -12,6 +13,7 @@ import com.sentinelx.risk.strategy.BasicRiskScoringStrategy;
 import com.sentinelx.user.entity.Role;
 import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
 import com.sentinelx.user.repository.RoleRepository;
 import com.sentinelx.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -26,6 +28,8 @@ import org.springframework.context.annotation.Import;
 })
 @Import({RiskScoreService.class, BasicRiskScoringStrategy.class, AlertService.class})
 class RiskScoreServiceTest {
+
+    private static final long UNKNOWN_USER_ID = 9999L;
 
     @Autowired
     private RiskScoreService riskScoreService;
@@ -74,6 +78,14 @@ class RiskScoreServiceTest {
 
         assertEquals(80, latest.score());
         assertEquals("new", latest.reason());
+    }
+
+    @Test
+    void getLatestRiskScoreByUserIdWithUnknownUserIdThrowsResourceNotFoundException() {
+        assertThrows(
+            ResourceNotFoundException.class,
+            () -> riskScoreService.getLatestRiskScoreByUserId(UNKNOWN_USER_ID)
+        );
     }
 
     private User createUser(String username, String email) {

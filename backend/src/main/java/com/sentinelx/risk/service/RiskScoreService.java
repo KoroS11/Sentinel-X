@@ -8,6 +8,8 @@ import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.risk.repository.RiskScoreRepository;
 import com.sentinelx.risk.strategy.RiskScoringStrategy;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
+import com.sentinelx.user.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -31,22 +33,26 @@ public class RiskScoreService {
         "Elevated risk due to frequent and off-hours activity.";
     private static final String REASON_NORMAL_ACTIVITY =
         "Risk calculated from recent user activity patterns.";
+    private static final String USER_NOT_FOUND = "User not found.";
 
     private final ActivityRepository activityRepository;
     private final RiskScoreRepository riskScoreRepository;
     private final RiskScoringStrategy riskScoringStrategy;
     private final AlertService alertService;
+    private final UserRepository userRepository;
 
     public RiskScoreService(
         ActivityRepository activityRepository,
         RiskScoreRepository riskScoreRepository,
         RiskScoringStrategy riskScoringStrategy,
-        AlertService alertService
+        AlertService alertService,
+        UserRepository userRepository
     ) {
         this.activityRepository = activityRepository;
         this.riskScoreRepository = riskScoreRepository;
         this.riskScoringStrategy = riskScoringStrategy;
         this.alertService = alertService;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -92,6 +98,20 @@ public class RiskScoreService {
         );
         return riskScoreRepository.findAllByUser(user, sortedPageable)
             .map(RiskScoreResponse::fromEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public RiskScoreResponse getLatestRiskScoreByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+        return getLatestRiskScore(user).orElseGet(() -> evaluateRisk(user));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<RiskScoreResponse> getRiskHistoryByUserId(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+        return getRiskHistory(user, pageable);
     }
 
     private String resolveReason(int score, List<Activity> recentActivities) {
