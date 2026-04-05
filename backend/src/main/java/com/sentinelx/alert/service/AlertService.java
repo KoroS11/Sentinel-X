@@ -5,14 +5,17 @@ import com.sentinelx.alert.entity.Alert;
 import com.sentinelx.alert.entity.AlertSeverity;
 import com.sentinelx.alert.entity.AlertStatus;
 import com.sentinelx.alert.exception.AlertAccessDeniedException;
-import com.sentinelx.alert.exception.AlertNotFoundException;
+import com.sentinelx.alert.exception.AlertInvalidStatusTransitionException;
 import com.sentinelx.alert.repository.AlertRepository;
 import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
+import com.sentinelx.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +25,16 @@ public class AlertService {
     private static final int CRITICAL_SEVERITY_MIN_SCORE = 85;
     private static final int HIGH_SEVERITY_MIN_SCORE = 70;
     private static final int MEDIUM_SEVERITY_MIN_SCORE = 50;
+    private static final String ALERT_NOT_FOUND = "Alert not found.";
+    private static final String USER_NOT_FOUND = "User not found.";
+    private static final String ILLEGAL_STATUS_TRANSITION = "Illegal status transition from %s to %s.";
 
     private final AlertRepository alertRepository;
+    private final UserRepository userRepository;
 
-    public AlertService(AlertRepository alertRepository) {
+    public AlertService(AlertRepository alertRepository, UserRepository userRepository) {
         this.alertRepository = alertRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -43,20 +51,55 @@ public class AlertService {
 
     @Transactional
     public AlertResponse acknowledgeAlert(Long alertId, User requestingUser) {
-        Alert alert = findAlert(alertId);
-        assertOwnershipOrAdmin(alert, requestingUser);
-        alert.setStatus(AlertStatus.ACKNOWLEDGED);
-        alert.setUpdatedAt(LocalDateTime.now());
-        return AlertResponse.fromEntity(alertRepository.save(alert));
+        return updateAlertStatus(alertId, AlertStatus.ACKNOWLEDGED, requestingUser);
     }
 
     @Transactional
     public AlertResponse resolveAlert(Long alertId, User requestingUser) {
         Alert alert = findAlert(alertId);
-        assertOwnershipOrAdmin(alert, requestingUser);
-        alert.setStatus(AlertStatus.RESOLVED);
+        if (alert.getStatus() == AlertStatus.OPEN) {
+            updateAlertStatus(alertId, AlertStatus.UNDER_INVESTIGATION, requestingUser);
+        }
+        return updateAlertStatus(alertId, AlertStatus.RESOLVED, requestingUser);
+    }
+
+    @Transactional(readOnly = true)
+    public AlertResponse getAlertById(Long id, User requestingUser) {
+        Alert alert = findAlert(id);
+        assertViewAccess(alert, requestingUser);
+        return AlertResponse.fromEntity(alert);
+    }
+
+    @Transactional
+    public AlertResponse updateAlertStatus(Long id, AlertStatus newStatus, User requestingUser) {
+        Alert alert = findAlert(id);
+        assertModifyAccess(alert, requestingUser);
+
+        validateStatusTransition(alert.getStatus(), newStatus);
+
+        alert.setStatus(newStatus);
         alert.setUpdatedAt(LocalDateTime.now());
         return AlertResponse.fromEntity(alertRepository.save(alert));
+    }
+
+    @Transactional
+    public AlertResponse assignAlert(Long id, Long assigneeUserId, User requestingUser) {
+        assertAdminOrAnalyst(requestingUser);
+
+        Alert alert = findAlert(id);
+        User assignee = userRepository.findById(assigneeUserId)
+            .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+
+        alert.setAssignedTo(assignee);
+        alert.setUpdatedAt(LocalDateTime.now());
+        return AlertResponse.fromEntity(alertRepository.save(alert));
+    }
+
+    @Transactional
+    public void deleteAlert(Long id, User requestingUser) {
+        assertAdmin(requestingUser);
+        Alert alert = findAlert(id);
+        alertRepository.delete(alert);
     }
 
     @Transactional(readOnly = true)
@@ -87,16 +130,78 @@ public class AlertService {
 
     private Alert findAlert(Long alertId) {
         return alertRepository.findById(alertId)
-            .orElseThrow(() -> new AlertNotFoundException("Alert not found."));
+            .orElseThrow(() -> new ResourceNotFoundException(ALERT_NOT_FOUND));
     }
 
-    private void assertOwnershipOrAdmin(Alert alert, User requestingUser) {
-        boolean isOwner = alert.getUser().getId().equals(requestingUser.getId());
-        boolean isAdmin = requestingUser.getRole().getName() == RoleType.ADMIN;
+    private void assertViewAccess(Alert alert, User requestingUser) {
+        if (isAdminOrAnalyst(requestingUser)) {
+            return;
+        }
 
-        if (!isOwner && !isAdmin) {
+        boolean isOwner = alert.getUser().getId().equals(requestingUser.getId());
+        if (!isOwner) {
+            throw new AccessDeniedException("You are not authorized to access this alert.");
+        }
+    }
+
+    private void assertModifyAccess(Alert alert, User requestingUser) {
+        if (isAdminOrAnalyst(requestingUser)) {
+            return;
+        }
+
+        boolean isOwner = alert.getUser().getId().equals(requestingUser.getId());
+        if (!isOwner) {
             throw new AlertAccessDeniedException("You are not authorized to modify this alert.");
         }
+    }
+
+    private void assertAdminOrAnalyst(User requestingUser) {
+        if (!isAdminOrAnalyst(requestingUser)) {
+            throw new AccessDeniedException("Only ADMIN or ANALYST can assign alerts.");
+        }
+    }
+
+    private void assertAdmin(User requestingUser) {
+        if (requestingUser.getRole().getName() != RoleType.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can delete alerts.");
+        }
+    }
+
+    private boolean isAdminOrAnalyst(User requestingUser) {
+        return requestingUser.getRole().getName() == RoleType.ADMIN
+            || requestingUser.getRole().getName() == RoleType.ANALYST;
+    }
+
+    private void validateStatusTransition(AlertStatus currentStatus, AlertStatus newStatus) {
+        if (currentStatus == newStatus) {
+            return;
+        }
+
+        if (currentStatus == AlertStatus.OPEN) {
+            if (newStatus == AlertStatus.UNDER_INVESTIGATION || newStatus == AlertStatus.ACKNOWLEDGED) {
+                return;
+            }
+            throw illegalTransition(currentStatus, newStatus);
+        }
+
+        if (currentStatus == AlertStatus.UNDER_INVESTIGATION || currentStatus == AlertStatus.ACKNOWLEDGED) {
+            if (newStatus == AlertStatus.RESOLVED) {
+                return;
+            }
+            throw illegalTransition(currentStatus, newStatus);
+        }
+
+        if (currentStatus == AlertStatus.RESOLVED) {
+            throw illegalTransition(currentStatus, newStatus);
+        }
+
+        throw illegalTransition(currentStatus, newStatus);
+    }
+
+    private AlertInvalidStatusTransitionException illegalTransition(AlertStatus currentStatus, AlertStatus newStatus) {
+        return new AlertInvalidStatusTransitionException(
+            String.format(ILLEGAL_STATUS_TRANSITION, currentStatus, newStatus)
+        );
     }
 
     private AlertSeverity determineSeverity(int scoreValue) {

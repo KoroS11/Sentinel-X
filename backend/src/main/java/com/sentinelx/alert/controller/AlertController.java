@@ -1,22 +1,29 @@
 package com.sentinelx.alert.controller;
 
 import com.sentinelx.alert.dto.AlertResponse;
+import com.sentinelx.alert.dto.AlertAssignRequest;
+import com.sentinelx.alert.dto.AlertStatusRequest;
 import com.sentinelx.alert.entity.AlertStatus;
 import com.sentinelx.alert.service.AlertService;
 import com.sentinelx.auth.exception.InvalidCredentialsException;
 import com.sentinelx.user.entity.User;
 import com.sentinelx.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 
 @RestController
@@ -65,6 +72,43 @@ public class AlertController {
         Pageable pageable
     ) {
         return alertService.getAllAlerts(status, pageable);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public AlertResponse getAlertById(@PathVariable Long id, Authentication authentication) {
+        User user = resolveCurrentUser(authentication);
+        return alertService.getAlertById(id, user);
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public AlertResponse updateAlertStatus(
+        @PathVariable Long id,
+        @Valid @RequestBody AlertStatusRequest request,
+        Authentication authentication
+    ) {
+        User user = resolveCurrentUser(authentication);
+        return alertService.updateAlertStatus(id, request.status(), user);
+    }
+
+    @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public AlertResponse assignAlert(
+        @PathVariable Long id,
+        @Valid @RequestBody AlertAssignRequest request,
+        Authentication authentication
+    ) {
+        User user = resolveCurrentUser(authentication);
+        return alertService.assignAlert(id, request.assigneeUserId(), user);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public ResponseEntity<Void> deleteAlert(@PathVariable Long id, Authentication authentication) {
+        User user = resolveCurrentUser(authentication);
+        alertService.deleteAlert(id, user);
+        return ResponseEntity.noContent().build();
     }
 
     private User resolveCurrentUser(Authentication authentication) {
