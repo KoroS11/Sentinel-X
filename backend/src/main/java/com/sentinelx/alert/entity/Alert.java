@@ -35,6 +35,10 @@ public class Alert {
     @JoinColumn(name = "risk_score_id")
     private RiskScore riskScore;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_to_user_id")
+    private User assignedTo;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AlertSeverity severity;
