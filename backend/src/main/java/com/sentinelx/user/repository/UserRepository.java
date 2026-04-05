@@ -1,5 +1,6 @@
 package com.sentinelx.user.repository;
 
+import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -7,5 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
 
+    Optional<User> findByEmail(String email);
+
     boolean existsByEmail(String email);
+
+    long countByRole_Name(RoleType roleType);
 }

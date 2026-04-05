@@ -1,0 +1,89 @@
+package com.sentinelx.activity.controller;
+
+import com.sentinelx.activity.dto.ActivityResponse;
+import com.sentinelx.activity.service.ActivityService;
+import com.sentinelx.auth.exception.InvalidCredentialsException;
+import com.sentinelx.auth.security.RoleConstants;
+import com.sentinelx.user.entity.User;
+import com.sentinelx.user.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/activities")
+public class ActivityController {
+
+    private final ActivityService activityService;
+    private final UserRepository userRepository;
+
+    public ActivityController(ActivityService activityService, UserRepository userRepository) {
+        this.activityService = activityService;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public Page<ActivityResponse> getMyActivities(Authentication authentication, Pageable pageable) {
+        User user = resolveCurrentUser(authentication);
+        return activityService.getActivitiesForUser(user, pageable);
+    }
+
+    @GetMapping("/entity/{entityType}")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public Page<ActivityResponse> getActivitiesByEntity(
+        @PathVariable String entityType,
+        Pageable pageable
+    ) {
+        return activityService.getActivitiesByEntity(entityType, pageable);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public Page<ActivityResponse> getActivitiesByUserId(
+        @RequestParam("userId") Long userId,
+        Pageable pageable
+    ) {
+        return activityService.getActivitiesByUserId(userId, pageable);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority(T(com.sentinelx.auth.security.RoleConstants).EMPLOYEE, T(com.sentinelx.auth.security.RoleConstants).ANALYST, T(com.sentinelx.auth.security.RoleConstants).ADMIN)")
+    public ActivityResponse getActivityById(@PathVariable Long id, Authentication authentication) {
+        ActivityResponse activity = activityService.getActivityById(id);
+
+        if (hasAuthority(authentication, RoleConstants.ADMIN) || hasAuthority(authentication, RoleConstants.ANALYST)) {
+            return activity;
+        }
+
+        User currentUser = resolveCurrentUser(authentication);
+        if (!currentUser.getId().equals(activity.userId())) {
+            throw new AccessDeniedException("You can only access your own activities.");
+        }
+
+        return activity;
+    }
+
+    private User resolveCurrentUser(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new InvalidCredentialsException("Authentication is required.");
+        }
+
+        return userRepository.findByUsername(authentication.getName())
+            .orElseThrow(() -> new InvalidCredentialsException("Invalid user context."));
+    }
+
+    private boolean hasAuthority(Authentication authentication, String authority) {
+        return authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .anyMatch(authority::equals);
+    }
+}
