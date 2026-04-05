@@ -120,9 +120,13 @@ SentinelX is a modular monolith full-stack system designed to detect, monitor, a
 
 **Endpoints:**
 ```
+POST /api/auth/register
 POST /api/auth/login
+POST /api/auth/refresh
 POST /api/auth/logout
-POST /api/auth/refresh-token
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
+GET  /api/auth/verify-email
 ```
 
 ---
@@ -369,7 +373,13 @@ All protected routes require: `Authorization: Bearer <JWT_TOKEN>`
 
 | Method | Endpoint | Role | Description |
 |---|---|---|---|
+| POST | `/api/auth/register` | Public | Register new user account |
 | POST | `/api/auth/login` | Public | Login and receive JWT |
+| POST | `/api/auth/refresh` | Public | Rotate refresh token and issue new access token |
+| POST | `/api/auth/logout` | Employee, Analyst, Admin | Revoke active refresh tokens for authenticated user |
+| POST | `/api/auth/forgot-password` | Public | Request password reset token |
+| POST | `/api/auth/reset-password` | Public | Reset password using reset token |
+| GET | `/api/auth/verify-email` | Public | Verify email using verification token |
 | GET | `/api/users` | Admin | List all users |
 | POST | `/api/users` | Admin | Create new user |
 | GET | `/api/activities` | Admin, Analyst | Get activity logs |
