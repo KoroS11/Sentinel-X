@@ -4,6 +4,8 @@ import com.sentinelx.activity.dto.ActivityResponse;
 import com.sentinelx.activity.entity.Activity;
 import com.sentinelx.activity.repository.ActivityRepository;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
+import com.sentinelx.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -12,10 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ActivityService {
 
-    private final ActivityRepository activityRepository;
+    private static final String USER_NOT_FOUND = "User not found.";
+    private static final String ACTIVITY_NOT_FOUND = "Activity not found.";
 
-    public ActivityService(ActivityRepository activityRepository) {
+    private final ActivityRepository activityRepository;
+    private final UserRepository userRepository;
+
+    public ActivityService(ActivityRepository activityRepository, UserRepository userRepository) {
         this.activityRepository = activityRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -43,5 +50,21 @@ public class ActivityService {
     @Transactional(readOnly = true)
     public Page<ActivityResponse> getActivitiesByEntity(String entityType, Pageable pageable) {
         return activityRepository.findAllByEntityType(entityType, pageable).map(ActivityResponse::fromEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityResponse> getActivitiesByUserId(Long userId, Pageable pageable) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException(USER_NOT_FOUND);
+        }
+
+        return activityRepository.findAllByUserId(userId, pageable).map(ActivityResponse::fromEntity);
+    }
+
+    @Transactional(readOnly = true)
+    public ActivityResponse getActivityById(Long id) {
+        Activity activity = activityRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY_NOT_FOUND));
+        return ActivityResponse.fromEntity(activity);
     }
 }
