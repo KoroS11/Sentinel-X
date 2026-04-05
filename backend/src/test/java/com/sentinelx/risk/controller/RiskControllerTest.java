@@ -34,6 +34,7 @@ class RiskControllerTest {
 
     private static final String TEST_SECRET =
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+    private static final String DEFAULT_PASSWORD = "Password@123";
 
     @Autowired
     private MockMvc mockMvc;
@@ -96,10 +97,10 @@ class RiskControllerTest {
 
     @Test
     void getRiskUserWithNonAdminReturnsForbidden() throws Exception {
-        registerUser("employee", "employee@example.com", "Password@123");
-        registerUser("target", "target@example.com", "Password@123");
+        registerUser("employee", "employee@example.com", DEFAULT_PASSWORD);
+        registerUser("target", "target@example.com", DEFAULT_PASSWORD);
 
-        String employeeToken = loginAndGetAccessToken("employee@example.com", "Password@123");
+        String employeeToken = loginAndGetAccessToken("employee@example.com", DEFAULT_PASSWORD);
         Long targetId = userRepository.findByEmail("target@example.com").orElseThrow().getId();
 
         mockMvc.perform(get("/api/risk/user/{userId}", targetId)
@@ -109,12 +110,57 @@ class RiskControllerTest {
 
     @Test
     void getRiskUserWithAdminReturnsOk() throws Exception {
-        User admin = createUserWithRole("admin", "admin@example.com", "Password@123", RoleType.ADMIN);
-        User target = createUserWithRole("target", "target@example.com", "Password@123", RoleType.EMPLOYEE);
+        User admin = createUserWithRole("admin", "admin@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        User target = createUserWithRole("target", "target@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
 
-        String adminToken = loginAndGetAccessToken(admin.getEmail(), "Password@123");
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
 
         mockMvc.perform(get("/api/risk/user/{userId}", target.getId())
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRiskByUserIdWithOwnEmployeeTokenReturnsOk() throws Exception {
+        User employee = createUserWithRole("employee-own", "employee-own@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        String employeeToken = loginAndGetAccessToken(employee.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}", employee.getId())
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRiskByUserIdWithDifferentEmployeeTokenReturnsForbidden() throws Exception {
+        User requester = createUserWithRole("employee-r", "employee-r@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        User target = createUserWithRole("employee-t", "employee-t@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        String requesterToken = loginAndGetAccessToken(requester.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}", target.getId())
+                .header("Authorization", "Bearer " + requesterToken))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getRiskByUserIdWithAnalystTokenReturnsOk() throws Exception {
+        User analyst = createUserWithRole("analyst", "analyst@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+        User target = createUserWithRole("employee-z", "employee-z@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}", target.getId())
+                .header("Authorization", "Bearer " + analystToken))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRiskHistoryByUserIdWithAdminTokenReturnsOkPaginated() throws Exception {
+        User admin = createUserWithRole("admin-h", "admin-h@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        User target = createUserWithRole("employee-h", "employee-h@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/risk/{userId}/history", target.getId())
+                .param("page", "0")
+                .param("size", "10")
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isOk());
     }
