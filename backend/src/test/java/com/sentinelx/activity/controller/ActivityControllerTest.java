@@ -36,6 +36,8 @@ class ActivityControllerTest {
 
     private static final String TEST_SECRET =
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+    private static final String DEFAULT_PASSWORD = "Password@123";
+    private static final long SAMPLE_USER_ID_QUERY = 1L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -97,10 +99,10 @@ class ActivityControllerTest {
 
     @Test
     void getMyActivitiesWithValidTokenReturnsPaginatedResults() throws Exception {
-        registerUser("alice", "alice@example.com", "Password@123");
-        registerUser("other", "other@example.com", "Password@123");
+        registerUser("alice", "alice@example.com", DEFAULT_PASSWORD);
+        registerUser("other", "other@example.com", DEFAULT_PASSWORD);
 
-        String aliceToken = loginAndGetAccessToken("alice@example.com", "Password@123");
+        String aliceToken = loginAndGetAccessToken("alice@example.com", DEFAULT_PASSWORD);
         User alice = userRepository.findByEmail("alice@example.com").orElseThrow();
         User other = userRepository.findByEmail("other@example.com").orElseThrow();
 
@@ -118,8 +120,8 @@ class ActivityControllerTest {
 
     @Test
     void getActivitiesByEntityWithNonAdminTokenReturnsForbidden() throws Exception {
-        registerUser("employee", "employee@example.com", "Password@123");
-        String employeeToken = loginAndGetAccessToken("employee@example.com", "Password@123");
+        registerUser("employee", "employee@example.com", DEFAULT_PASSWORD);
+        String employeeToken = loginAndGetAccessToken("employee@example.com", DEFAULT_PASSWORD);
 
         mockMvc.perform(get("/api/activities/entity/ALERT")
                 .header("Authorization", "Bearer " + employeeToken))
@@ -128,11 +130,11 @@ class ActivityControllerTest {
 
     @Test
     void getActivitiesByEntityWithAdminTokenReturnsOk() throws Exception {
-        User admin = createUserWithRole("admin", "admin@example.com", "Password@123", RoleType.ADMIN);
-        User employee = createUserWithRole("user", "user@example.com", "Password@123", RoleType.EMPLOYEE);
+        User admin = createUserWithRole("admin", "admin@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        User employee = createUserWithRole("user", "user@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
         activityService.logActivity(employee, "CREATE", "ALERT", "A-100", "meta");
 
-        String adminToken = loginAndGetAccessToken(admin.getEmail(), "Password@123");
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
 
         mockMvc.perform(get("/api/activities/entity/ALERT")
                 .param("page", "0")
@@ -142,6 +144,73 @@ class ActivityControllerTest {
             .andExpect(jsonPath("$.content.length()").value(greaterThan(0)))
             .andExpect(jsonPath("$.content[0].entityType").value("ALERT"));
     }
+
+            @Test
+            void getActivitiesByUserIdWithEmployeeTokenReturnsForbidden() throws Exception {
+            User employee = createUserWithRole("employee-a", "employee-a@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            String employeeToken = loginAndGetAccessToken(employee.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/activities")
+                .param("userId", String.valueOf(SAMPLE_USER_ID_QUERY))
+                .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isForbidden());
+            }
+
+            @Test
+            void getActivitiesByUserIdWithAnalystTokenReturnsOk() throws Exception {
+            User analyst = createUserWithRole("analyst-a", "analyst-a@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+            User employee = createUserWithRole("employee-b", "employee-b@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            activityService.logActivity(employee, "VIEW", "DASHBOARD", "D-100", "meta");
+            String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/activities")
+                .param("userId", String.valueOf(employee.getId()))
+                .header("Authorization", "Bearer " + analystToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(greaterThan(0)));
+            }
+
+            @Test
+            void getActivityByIdWithOwnerEmployeeTokenReturnsOk() throws Exception {
+            User owner = createUserWithRole("owner-a", "owner-a@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            String ownerToken = loginAndGetAccessToken(owner.getEmail(), DEFAULT_PASSWORD);
+            activityService.logActivity(owner, "LOGIN", "AUTH", "owner-session", "meta");
+
+            Long activityId = activityRepository.findAll().stream().findFirst().orElseThrow().getId();
+
+            mockMvc.perform(get("/api/activities/{id}", activityId)
+                .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(owner.getId()));
+            }
+
+            @Test
+            void getActivityByIdWithDifferentEmployeeTokenReturnsForbidden() throws Exception {
+            User owner = createUserWithRole("owner-b", "owner-b@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            User otherEmployee = createUserWithRole("other-b", "other-b@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            String otherEmployeeToken = loginAndGetAccessToken(otherEmployee.getEmail(), DEFAULT_PASSWORD);
+            activityService.logActivity(owner, "LOGIN", "AUTH", "owner-session-b", "meta");
+
+            Long activityId = activityRepository.findAll().stream().findFirst().orElseThrow().getId();
+
+            mockMvc.perform(get("/api/activities/{id}", activityId)
+                .header("Authorization", "Bearer " + otherEmployeeToken))
+                .andExpect(status().isForbidden());
+            }
+
+            @Test
+            void getActivityByIdWithAdminTokenReturnsOk() throws Exception {
+            User owner = createUserWithRole("owner-c", "owner-c@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            User admin = createUserWithRole("admin-c", "admin-c@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+            activityService.logActivity(owner, "LOGIN", "AUTH", "owner-session-c", "meta");
+
+            Long activityId = activityRepository.findAll().stream().findFirst().orElseThrow().getId();
+
+            mockMvc.perform(get("/api/activities/{id}", activityId)
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+            }
 
     private void registerUser(String username, String email, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
