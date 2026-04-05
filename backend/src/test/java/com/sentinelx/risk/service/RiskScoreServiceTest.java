@@ -17,6 +17,8 @@ import com.sentinelx.user.exception.ResourceNotFoundException;
 import com.sentinelx.user.repository.RoleRepository;
 import com.sentinelx.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -86,6 +88,47 @@ class RiskScoreServiceTest {
             ResourceNotFoundException.class,
             () -> riskScoreService.getLatestRiskScoreByUserId(UNKNOWN_USER_ID)
         );
+    }
+
+    @Test
+    void getLatestRiskScoreByUserIdWithoutExistingScoreEvaluatesRisk() {
+        User user = createUser("no-score", "no-score@example.com");
+
+        RiskScoreResponse response = riskScoreService.getLatestRiskScoreByUserId(user.getId());
+
+        assertTrue(response.id() != null);
+    }
+
+    @Test
+    void getRiskHistoryByUserIdWithUnknownUserIdThrowsResourceNotFoundException() {
+        assertThrows(
+            ResourceNotFoundException.class,
+            () -> riskScoreService.getRiskHistoryByUserId(UNKNOWN_USER_ID, PageRequest.of(0, 10))
+        );
+    }
+
+    @Test
+    void getRiskHistoryByUserIdReturnsPagedHistory() {
+        User user = createUser("history-user", "history-user@example.com");
+
+        RiskScore first = new RiskScore();
+        first.setUser(user);
+        first.setScore(35);
+        first.setReason("first");
+        first.setCalculatedAt(LocalDateTime.now().minusHours(1));
+        riskScoreRepository.save(first);
+
+        RiskScore second = new RiskScore();
+        second.setUser(user);
+        second.setScore(65);
+        second.setReason("second");
+        second.setCalculatedAt(LocalDateTime.now());
+        riskScoreRepository.save(second);
+
+        Page<RiskScoreResponse> history = riskScoreService.getRiskHistoryByUserId(user.getId(), PageRequest.of(0, 10));
+
+        assertEquals(2, history.getTotalElements());
+        assertEquals(65, history.getContent().get(0).score());
     }
 
     private User createUser(String username, String email) {
