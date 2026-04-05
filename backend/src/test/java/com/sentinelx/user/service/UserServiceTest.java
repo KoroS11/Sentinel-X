@@ -91,6 +91,16 @@ class UserServiceTest {
     }
 
     @Test
+    void getUserByIdReturnsUserForKnownId() {
+        User user = createUserWithRole("known-user", "known@example.com", RoleType.EMPLOYEE);
+
+        UserResponse response = userService.getUserById(user.getId());
+
+        assertEquals(user.getId(), response.id());
+        assertEquals("known@example.com", response.email());
+    }
+
+    @Test
     void createUserWithDuplicateEmailThrowsConflictException() {
         createUserWithRole("existing", "duplicate@example.com", RoleType.EMPLOYEE);
 
@@ -138,6 +148,13 @@ class UserServiceTest {
     }
 
     @Test
+    void updateUserWithUnknownIdThrowsResourceNotFoundException() {
+        UpdateUserRequest request = new UpdateUserRequest("updated", "updated@example.com");
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.updateUser(9999L, request));
+    }
+
+    @Test
     void deleteUserOnAdminRoleThrowsMeaningfulException() {
         User admin = createUserWithRole("admin-user", "admin-user@example.com", RoleType.ADMIN);
 
@@ -147,6 +164,15 @@ class UserServiceTest {
         );
 
         assertTrue(exception.getMessage().toLowerCase().contains("admin"));
+    }
+
+    @Test
+    void deleteUserOnNonAdminRoleDeletesUser() {
+        User employee = createUserWithRole("employee-del", "employee-del@example.com", RoleType.EMPLOYEE);
+
+        userService.deleteUser(employee.getId());
+
+        assertTrue(userRepository.findById(employee.getId()).isEmpty());
     }
 
     @Test
