@@ -2,6 +2,8 @@ package com.sentinelx.risk.repository;
 
 import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.user.entity.User;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +38,20 @@ public interface RiskScoreRepository extends JpaRepository<RiskScore, Long> {
           )
         """)
     long countUsersWithLatestScoreAtLeast(@Param("threshold") int threshold);
+
+    @Query("""
+        select
+            FUNCTION('YEAR', rs.calculatedAt),
+            FUNCTION('WEEK', rs.calculatedAt),
+            avg(rs.score),
+            sum(case when rs.score >= :highRiskThreshold then 1 else 0 end)
+        from RiskScore rs
+        where rs.calculatedAt >= :startDateTime
+        group by FUNCTION('YEAR', rs.calculatedAt), FUNCTION('WEEK', rs.calculatedAt)
+        order by FUNCTION('YEAR', rs.calculatedAt), FUNCTION('WEEK', rs.calculatedAt)
+        """)
+    List<Object[]> findWeeklyRiskTrendForPeriod(
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("highRiskThreshold") int highRiskThreshold
+    );
 }

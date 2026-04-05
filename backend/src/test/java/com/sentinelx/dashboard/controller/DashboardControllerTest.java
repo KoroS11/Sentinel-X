@@ -126,6 +126,50 @@ class DashboardControllerTest {
             .andExpect(jsonPath("$.highRiskUserCount").exists());
     }
 
+    @Test
+    void getDashboardSummaryWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/dashboard/summary"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getRiskTrendsWithEmployeeTokenReturnsForbidden() throws Exception {
+        User employee = createUserWithRole("employee-2", "employee-2@example.com", "Password@123", RoleType.EMPLOYEE);
+        String employeeToken = loginAndGetAccessToken(employee.getEmail(), "Password@123");
+
+        mockMvc.perform(get("/api/dashboard/risk-trends")
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAlertStatsWithAnalystTokenReturnsOk() throws Exception {
+        User analyst = createUserWithRole("analyst", "analyst@example.com", "Password@123", RoleType.ANALYST);
+        String analystToken = loginAndGetAccessToken(analyst.getEmail(), "Password@123");
+
+        mockMvc.perform(get("/api/dashboard/alert-stats")
+                .header("Authorization", "Bearer " + analystToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalOpen").exists())
+            .andExpect(jsonPath("$.totalUnderInvestigation").exists())
+            .andExpect(jsonPath("$.totalResolved").exists())
+            .andExpect(jsonPath("$.bySeverity").exists());
+    }
+
+    @Test
+    void getAlertStatsWithAdminTokenReturnsOk() throws Exception {
+        User admin = createUserWithRole("admin-2", "admin-2@example.com", "Password@123", RoleType.ADMIN);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), "Password@123");
+
+        mockMvc.perform(get("/api/dashboard/alert-stats")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalOpen").exists())
+            .andExpect(jsonPath("$.totalUnderInvestigation").exists())
+            .andExpect(jsonPath("$.totalResolved").exists())
+            .andExpect(jsonPath("$.bySeverity").exists());
+    }
+
     private String loginAndGetAccessToken(String email, String password) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login")
                 .contentType("application/json")

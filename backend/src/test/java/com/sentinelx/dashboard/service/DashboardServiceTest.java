@@ -5,10 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.sentinelx.activity.dto.ActivityResponse;
 import com.sentinelx.activity.service.ActivityService;
 import com.sentinelx.alert.dto.AlertResponse;
+import com.sentinelx.alert.entity.Alert;
+import com.sentinelx.alert.entity.AlertSeverity;
 import com.sentinelx.alert.entity.AlertStatus;
 import com.sentinelx.alert.service.AlertService;
+import com.sentinelx.dashboard.dto.AlertStatsResponse;
 import com.sentinelx.dashboard.dto.AdminDashboardResponse;
 import com.sentinelx.dashboard.dto.DashboardSummaryResponse;
+import com.sentinelx.dashboard.dto.RiskTrendResponse;
 import com.sentinelx.risk.entity.RiskScore;
 import com.sentinelx.risk.repository.RiskScoreRepository;
 import com.sentinelx.user.entity.Role;
@@ -22,6 +26,8 @@ import com.sentinelx.auth.repository.RefreshTokenRepository;
 import com.sentinelx.alert.repository.AlertRepository;
 import com.sentinelx.activity.repository.ActivityRepository;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -152,6 +158,83 @@ class DashboardServiceTest {
         assertEquals(admin.getId(), userRepository.findByEmail("admin@example.com").orElseThrow().getId());
     }
 
+    @Test
+    void getDashboardSummaryForEmployeeReturnsOwnDataOnly() {
+        User employee = createUserWithRole("employee", "employee@example.com", RoleType.EMPLOYEE);
+        User otherEmployee = createUserWithRole("other", "other@example.com", RoleType.EMPLOYEE);
+
+        activityService.logActivity(employee, "FILE_ACCESS", "DOC", "E-1", "{}");
+        activityService.logActivity(otherEmployee, "FILE_ACCESS", "DOC", "O-1", "{}");
+
+        createRiskScore(employee, 72, "employee risk", LocalDateTime.now());
+        RiskScore otherRisk = createRiskScore(otherEmployee, 88, "other risk", LocalDateTime.now());
+        alertService.generateAlert(employee, createRiskScore(employee, 74, "employee alert", LocalDateTime.now().minusMinutes(1)));
+        alertService.generateAlert(otherEmployee, otherRisk);
+
+        Object response = dashboardService.getDashboardSummary(employee);
+
+        DashboardSummaryResponse summary = (DashboardSummaryResponse) response;
+        assertEquals(1L, summary.totalActivities());
+        assertEquals(72, summary.latestRiskScore());
+        assertEquals(1L, summary.openAlertsCount());
+    }
+
+    @Test
+    void getDashboardSummaryForAdminReturnsSystemWideData() {
+        User admin = createUserWithRole("admin2", "admin2@example.com", RoleType.ADMIN);
+        User employee = createUserWithRole("emp2", "emp2@example.com", RoleType.EMPLOYEE);
+
+        createRiskScore(employee, 82, "high risk", LocalDateTime.now());
+        alertService.generateAlert(employee, createRiskScore(employee, 85, "alert", LocalDateTime.now().minusMinutes(1)));
+
+        Object response = dashboardService.getDashboardSummary(admin);
+
+        AdminDashboardResponse summary = (AdminDashboardResponse) response;
+        assertEquals(2L, summary.totalUsers());
+        assertEquals(1L, summary.totalOpenAlerts());
+        assertEquals(1L, summary.highRiskUserCount());
+    }
+
+    @Test
+    void getRiskTrendsReturnsEightEntriesMaximum() {
+        User user = createUserWithRole("trend-user", "trend-user@example.com", RoleType.EMPLOYEE);
+        LocalDateTime now = LocalDateTime.now();
+
+        for (int weekOffset = 0; weekOffset <= 8; weekOffset++) {
+            createRiskScore(
+                user,
+                40 + weekOffset,
+                "risk week " + weekOffset,
+                now.minusWeeks(weekOffset)
+            );
+        }
+
+        List<RiskTrendResponse> trends = dashboardService.getRiskTrends();
+
+        assertEquals(true, trends.size() <= 8);
+    }
+
+    @Test
+    void getAlertStatsTotalsMatchKnownSeededData() {
+        User user = createUserWithRole("alert-user", "alert-user@example.com", RoleType.EMPLOYEE);
+
+        saveAlert(user, AlertStatus.OPEN, AlertSeverity.HIGH, "Open high");
+        saveAlert(user, AlertStatus.UNDER_INVESTIGATION, AlertSeverity.LOW, "Investigating low");
+        saveAlert(user, AlertStatus.RESOLVED, AlertSeverity.CRITICAL, "Resolved critical");
+        saveAlert(user, AlertStatus.RESOLVED, AlertSeverity.HIGH, "Resolved high");
+
+        AlertStatsResponse stats = dashboardService.getAlertStats();
+
+        assertEquals(1L, stats.totalOpen());
+        assertEquals(1L, stats.totalUnderInvestigation());
+        assertEquals(2L, stats.totalResolved());
+
+        Map<String, Long> bySeverity = stats.bySeverity();
+        assertEquals(1L, bySeverity.get("LOW"));
+        assertEquals(2L, bySeverity.get("HIGH"));
+        assertEquals(1L, bySeverity.get("CRITICAL"));
+    }
+
     private User createUserWithRole(String username, String email, RoleType roleType) {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role createdRole = new Role();
@@ -176,5 +259,16 @@ class DashboardServiceTest {
         score.setReason(reason);
         score.setCalculatedAt(calculatedAt);
         return riskScoreRepository.save(score);
+    }
+
+    private Alert saveAlert(User user, AlertStatus status, AlertSeverity severity, String message) {
+        Alert alert = new Alert();
+        alert.setUser(user);
+        alert.setStatus(status);
+        alert.setSeverity(severity);
+        alert.setMessage(message);
+        alert.setCreatedAt(LocalDateTime.now());
+        alert.setUpdatedAt(LocalDateTime.now());
+        return alertRepository.save(alert);
     }
 }
