@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +41,7 @@ class UserControllerTest {
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
 
     private static final String DEFAULT_PASSWORD = "Password@123";
+    private static final long UNKNOWN_USER_ID = 9999L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -105,6 +107,18 @@ class UserControllerTest {
             .andExpect(status().isForbidden());
     }
 
+            @Test
+            void getUsersWithAdminTokenReturnsOk() throws Exception {
+            User admin = createUserWithRole("admin-list", "admin-list@example.com", RoleType.ADMIN);
+            createUserWithRole("employee-list", "employee-list@example.com", RoleType.EMPLOYEE);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/users")
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+            }
+
     @Test
     void getUserByIdWithOwnUserTokenReturnsOk() throws Exception {
         User employee = createUserWithRole("self-user", "self@example.com", RoleType.EMPLOYEE);
@@ -126,6 +140,16 @@ class UserControllerTest {
                 .header("Authorization", "Bearer " + requesterToken))
             .andExpect(status().isForbidden());
     }
+
+            @Test
+            void getUserByIdWithAdminTokenAndUnknownIdReturnsNotFound() throws Exception {
+            User admin = createUserWithRole("admin-unknown", "admin-unknown@example.com", RoleType.ADMIN);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/users/{id}", UNKNOWN_USER_ID)
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
+            }
 
     @Test
     void postUsersWithAdminTokenReturnsCreated() throws Exception {
@@ -151,6 +175,16 @@ class UserControllerTest {
             .andExpect(status().isNoContent());
     }
 
+            @Test
+            void deleteUserWithAdminTokenAndUnknownIdReturnsNotFound() throws Exception {
+            User admin = createUserWithRole("admin-del-unknown", "admin-del-unknown@example.com", RoleType.ADMIN);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(delete("/api/users/{id}", UNKNOWN_USER_ID)
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
+            }
+
     @Test
     void patchUserStatusWithAdminTokenReturnsOk() throws Exception {
         User admin = createUserWithRole("admin-status", "admin-status@example.com", RoleType.ADMIN);
@@ -167,6 +201,79 @@ class UserControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value(UserStatus.SUSPENDED.name()));
     }
+
+            @Test
+            void patchUserStatusWithInvalidBodyReturnsBadRequest() throws Exception {
+            User admin = createUserWithRole("admin-status-bad", "admin-status-bad@example.com", RoleType.ADMIN);
+            User employee = createUserWithRole("employee-status-bad", "employee-status-bad@example.com", RoleType.EMPLOYEE);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(patch("/api/users/{id}/status", employee.getId())
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType("application/json")
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+            }
+
+            @Test
+            void putUserWithoutTokenReturnsUnauthorized() throws Exception {
+            User employee = createUserWithRole("employee-put-unauth", "employee-put-unauth@example.com", RoleType.EMPLOYEE);
+
+            mockMvc.perform(put("/api/users/{id}", employee.getId())
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(updateUserRequest("new-name", "new@example.com"))))
+                .andExpect(status().isUnauthorized());
+            }
+
+            @Test
+            void putOwnUserWithEmployeeTokenReturnsOk() throws Exception {
+            User employee = createUserWithRole("employee-put", "employee-put@example.com", RoleType.EMPLOYEE);
+            String employeeToken = loginAndGetAccessToken(employee.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(put("/api/users/{id}", employee.getId())
+                .header("Authorization", "Bearer " + employeeToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(updateUserRequest("employee-updated", "employee-updated@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("employee-updated"));
+            }
+
+            @Test
+            void putOtherUserWithEmployeeTokenReturnsForbidden() throws Exception {
+            User requester = createUserWithRole("employee-put-req", "employee-put-req@example.com", RoleType.EMPLOYEE);
+            User target = createUserWithRole("employee-put-target", "employee-put-target@example.com", RoleType.EMPLOYEE);
+            String requesterToken = loginAndGetAccessToken(requester.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(put("/api/users/{id}", target.getId())
+                .header("Authorization", "Bearer " + requesterToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(updateUserRequest("blocked", "blocked@example.com"))))
+                .andExpect(status().isForbidden());
+            }
+
+            @Test
+            void putUserWithInvalidEmailReturnsBadRequest() throws Exception {
+            User employee = createUserWithRole("employee-put-bad", "employee-put-bad@example.com", RoleType.EMPLOYEE);
+            String employeeToken = loginAndGetAccessToken(employee.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(put("/api/users/{id}", employee.getId())
+                .header("Authorization", "Bearer " + employeeToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(updateUserRequest("name", "invalid-email"))))
+                .andExpect(status().isBadRequest());
+            }
+
+            @Test
+            void putUnknownUserWithAdminTokenReturnsNotFound() throws Exception {
+            User admin = createUserWithRole("admin-put-unknown", "admin-put-unknown@example.com", RoleType.ADMIN);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(put("/api/users/{id}", UNKNOWN_USER_ID)
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(updateUserRequest("name", "name@example.com"))))
+                .andExpect(status().isNotFound());
+            }
 
     private User createUserWithRole(String username, String email, RoleType roleType) {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
@@ -211,6 +318,13 @@ class UserControllerTest {
         request.put("email", "new-user@example.com");
         request.put("password", "NewPassword@123");
         request.put("role", RoleType.EMPLOYEE.name());
+        return request;
+    }
+
+    private Map<String, String> updateUserRequest(String username, String email) {
+        Map<String, String> request = new HashMap<>();
+        request.put("username", username);
+        request.put("email", email);
         return request;
     }
 }

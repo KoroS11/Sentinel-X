@@ -42,6 +42,7 @@ class AlertControllerTest {
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     private static final String DEFAULT_PASSWORD = "Password@123";
     private static final long NON_EXISTENT_USER_ID = 9999L;
+    private static final long NON_EXISTENT_ALERT_ID = 9999L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -196,6 +197,22 @@ class AlertControllerTest {
     }
 
     @Test
+    void getAlertByIdWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/alerts/{id}", NON_EXISTENT_ALERT_ID))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getAlertByIdWithAdminAndUnknownIdReturnsNotFound() throws Exception {
+        User admin = createUserWithRole("admin-not-found", "admin-not-found@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/alerts/{id}", NON_EXISTENT_ALERT_ID)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
     void updateAlertStatusOpenToUnderInvestigationSucceeds() throws Exception {
         User owner = createUserWithRole("owner-g", "owner-g@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
         AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 91, "elevated"));
@@ -220,6 +237,33 @@ class AlertControllerTest {
                 .content(objectMapper.writeValueAsString(statusRequest(AlertStatus.RESOLVED))))
             .andExpect(status().isConflict());
     }
+
+            @Test
+            void updateAlertStatusWithInvalidBodyReturnsBadRequest() throws Exception {
+            User owner = createUserWithRole("owner-invalid", "owner-invalid@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 80, "elevated"));
+            String ownerToken = loginAndGetAccessToken(owner.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(patch("/api/alerts/{id}/status", alert.id())
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType("application/json")
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+            }
+
+            @Test
+            void assignAlertWithInvalidBodyReturnsBadRequest() throws Exception {
+            User analyst = createUserWithRole("analyst-invalid", "analyst-invalid@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+            User owner = createUserWithRole("owner-invalid-assign", "owner-invalid-assign@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+            AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 87, "elevated"));
+            String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(post("/api/alerts/{id}/assign", alert.id())
+                .header("Authorization", "Bearer " + analystToken)
+                .contentType("application/json")
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+            }
 
     private String loginAndGetAccessToken(String email, String password) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login")

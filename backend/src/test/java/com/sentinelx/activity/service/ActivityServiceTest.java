@@ -101,6 +101,30 @@ class ActivityServiceTest {
     }
 
     @Test
+    void getActivitiesByEntityReturnsOnlyMatchingEntityType() {
+        User user = createUser("entity-user", "entity-user@example.com");
+        activityService.logActivity(user, "CREATE", "ALERT", "A-1", "meta-1");
+        activityService.logActivity(user, "UPDATE", "DASHBOARD", "D-1", "meta-2");
+
+        Page<ActivityResponse> page = activityService.getActivitiesByEntity("ALERT", PageRequest.of(0, 10));
+
+        assertEquals(1, page.getTotalElements());
+        assertEquals("ALERT", page.getContent().get(0).entityType());
+    }
+
+    @Test
+    void getActivityByIdReturnsExpectedActivityForKnownId() {
+        User user = createUser("known-activity", "known-activity@example.com");
+        activityService.logActivity(user, "LOGIN", "AUTH", "session-1", "meta");
+        Long activityId = activityRepository.findAll().stream().findFirst().orElseThrow().getId();
+
+        ActivityResponse response = activityService.getActivityById(activityId);
+
+        assertEquals(user.getId(), response.userId());
+        assertEquals("AUTH", response.entityType());
+    }
+
+    @Test
     void getActivityByIdWithUnknownIdThrowsResourceNotFoundException() {
         assertThrows(ResourceNotFoundException.class, () -> activityService.getActivityById(UNKNOWN_ACTIVITY_ID));
     }

@@ -38,6 +38,8 @@ class ActivityControllerTest {
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     private static final String DEFAULT_PASSWORD = "Password@123";
     private static final long SAMPLE_USER_ID_QUERY = 1L;
+    private static final long UNKNOWN_ACTIVITY_ID = 9999L;
+    private static final long UNKNOWN_USER_ID = 9999L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -157,6 +159,35 @@ class ActivityControllerTest {
             }
 
             @Test
+            void getActivitiesByUserIdWithoutTokenReturnsUnauthorized() throws Exception {
+            mockMvc.perform(get("/api/activities")
+                .param("userId", String.valueOf(SAMPLE_USER_ID_QUERY)))
+                .andExpect(status().isUnauthorized());
+            }
+
+            @Test
+            void getActivitiesByUserIdWithInvalidInputReturnsBadRequest() throws Exception {
+            User analyst = createUserWithRole("analyst-invalid", "analyst-invalid@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+            String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/activities")
+                .param("userId", "not-a-number")
+                .header("Authorization", "Bearer " + analystToken))
+                .andExpect(status().isBadRequest());
+            }
+
+            @Test
+            void getActivitiesByUserIdWithUnknownUserReturnsNotFound() throws Exception {
+            User analyst = createUserWithRole("analyst-unknown", "analyst-unknown@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+            String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/activities")
+                .param("userId", String.valueOf(UNKNOWN_USER_ID))
+                .header("Authorization", "Bearer " + analystToken))
+                .andExpect(status().isNotFound());
+            }
+
+            @Test
             void getActivitiesByUserIdWithAnalystTokenReturnsOk() throws Exception {
             User analyst = createUserWithRole("analyst-a", "analyst-a@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
             User employee = createUserWithRole("employee-b", "employee-b@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
@@ -210,6 +241,22 @@ class ActivityControllerTest {
             mockMvc.perform(get("/api/activities/{id}", activityId)
                 .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
+            }
+
+            @Test
+            void getActivityByIdWithoutTokenReturnsUnauthorized() throws Exception {
+            mockMvc.perform(get("/api/activities/{id}", UNKNOWN_ACTIVITY_ID))
+                .andExpect(status().isUnauthorized());
+            }
+
+            @Test
+            void getActivityByIdWithAdminAndUnknownIdReturnsNotFound() throws Exception {
+            User admin = createUserWithRole("admin-notfound", "admin-notfound@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+            String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+            mockMvc.perform(get("/api/activities/{id}", UNKNOWN_ACTIVITY_ID)
+                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
             }
 
     private void registerUser(String username, String email, String password) throws Exception {
