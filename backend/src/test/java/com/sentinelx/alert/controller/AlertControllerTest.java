@@ -3,10 +3,13 @@ package com.sentinelx.alert.controller;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sentinelx.alert.dto.AlertResponse;
+import com.sentinelx.alert.entity.AlertStatus;
+import com.sentinelx.alert.repository.AlertRepository;
 import com.sentinelx.alert.service.AlertService;
 import com.sentinelx.auth.repository.EmailVerificationTokenRepository;
 import com.sentinelx.auth.repository.PasswordResetTokenRepository;
@@ -37,6 +40,8 @@ class AlertControllerTest {
 
     private static final String TEST_SECRET =
         UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+    private static final String DEFAULT_PASSWORD = "Password@123";
+    private static final long NON_EXISTENT_USER_ID = 9999L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,6 +51,9 @@ class AlertControllerTest {
 
     @Autowired
     private AlertService alertService;
+
+    @Autowired
+    private AlertRepository alertRepository;
 
     @Autowired
     private RiskScoreRepository riskScoreRepository;
@@ -83,6 +91,7 @@ class AlertControllerTest {
 
     @BeforeEach
     void setUp() {
+        alertRepository.deleteAll();
         riskScoreRepository.deleteAll();
         emailVerificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
@@ -98,17 +107,118 @@ class AlertControllerTest {
 
     @Test
     void patchAcknowledgeByWrongUserReturnsForbidden() throws Exception {
-        User owner = createUserWithRole("owner", "owner@example.com", "Password@123", RoleType.EMPLOYEE);
-        User other = createUserWithRole("other", "other@example.com", "Password@123", RoleType.EMPLOYEE);
+        User owner = createUserWithRole("owner", "owner@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        User other = createUserWithRole("other", "other@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
 
         RiskScore ownerScore = createRiskScore(owner, 85, "elevated");
         AlertResponse alert = alertService.generateAlert(owner, ownerScore);
 
-        String otherUserToken = loginAndGetAccessToken(other.getEmail(), "Password@123");
+        String otherUserToken = loginAndGetAccessToken(other.getEmail(), DEFAULT_PASSWORD);
 
         mockMvc.perform(patch("/api/alerts/{id}/acknowledge", alert.id())
                 .header("Authorization", "Bearer " + otherUserToken))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void assignAlertByEmployeeReturnsForbidden() throws Exception {
+        User employee = createUserWithRole("employee-a", "employee-a@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        User owner = createUserWithRole("owner-a", "owner-a@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 76, "elevated"));
+        String employeeToken = loginAndGetAccessToken(employee.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(post("/api/alerts/{id}/assign", alert.id())
+                .header("Authorization", "Bearer " + employeeToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(assignRequest(owner.getId()))))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void assignAlertWithNonexistentAssigneeThrowsResourceNotFound() throws Exception {
+        User analyst = createUserWithRole("analyst-a", "analyst-a@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+        User owner = createUserWithRole("owner-b", "owner-b@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 86, "elevated"));
+        String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(post("/api/alerts/{id}/assign", alert.id())
+                .header("Authorization", "Bearer " + analystToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(assignRequest(NON_EXISTENT_USER_ID))))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteAlertByNonAdminReturnsForbidden() throws Exception {
+        User analyst = createUserWithRole("analyst-b", "analyst-b@example.com", DEFAULT_PASSWORD, RoleType.ANALYST);
+        User owner = createUserWithRole("owner-c", "owner-c@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 82, "elevated"));
+        String analystToken = loginAndGetAccessToken(analyst.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(delete("/api/alerts/{id}", alert.id())
+                .header("Authorization", "Bearer " + analystToken))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteAlertByAdminReturnsNoContent() throws Exception {
+        User admin = createUserWithRole("admin-a", "admin-a@example.com", DEFAULT_PASSWORD, RoleType.ADMIN);
+        User owner = createUserWithRole("owner-d", "owner-d@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 83, "elevated"));
+        String adminToken = loginAndGetAccessToken(admin.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(delete("/api/alerts/{id}", alert.id())
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void getAlertByIdByOwnerReturnsOk() throws Exception {
+        User owner = createUserWithRole("owner-e", "owner-e@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 88, "elevated"));
+        String ownerToken = loginAndGetAccessToken(owner.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/alerts/{id}", alert.id())
+                .header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void getAlertByIdByDifferentEmployeeReturnsForbidden() throws Exception {
+        User owner = createUserWithRole("owner-f", "owner-f@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        User other = createUserWithRole("other-f", "other-f@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 89, "elevated"));
+        String otherToken = loginAndGetAccessToken(other.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(get("/api/alerts/{id}", alert.id())
+                .header("Authorization", "Bearer " + otherToken))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateAlertStatusOpenToUnderInvestigationSucceeds() throws Exception {
+        User owner = createUserWithRole("owner-g", "owner-g@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 91, "elevated"));
+        String ownerToken = loginAndGetAccessToken(owner.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(patch("/api/alerts/{id}/status", alert.id())
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(statusRequest(AlertStatus.UNDER_INVESTIGATION))))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateAlertStatusOpenToResolvedThrowsIllegalTransition() throws Exception {
+        User owner = createUserWithRole("owner-h", "owner-h@example.com", DEFAULT_PASSWORD, RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 93, "elevated"));
+        String ownerToken = loginAndGetAccessToken(owner.getEmail(), DEFAULT_PASSWORD);
+
+        mockMvc.perform(patch("/api/alerts/{id}/status", alert.id())
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(statusRequest(AlertStatus.RESOLVED))))
+            .andExpect(status().isConflict());
     }
 
     private String loginAndGetAccessToken(String email, String password) throws Exception {
@@ -152,6 +262,18 @@ class AlertControllerTest {
         Map<String, String> request = new HashMap<>();
         request.put("email", email);
         request.put("password", password);
+        return request;
+    }
+
+    private Map<String, Object> statusRequest(AlertStatus status) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("status", status.name());
+        return request;
+    }
+
+    private Map<String, Object> assignRequest(Long assigneeUserId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("assigneeUserId", assigneeUserId);
         return request;
     }
 }
