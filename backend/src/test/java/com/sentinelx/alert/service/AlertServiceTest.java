@@ -10,6 +10,7 @@ import com.sentinelx.alert.dto.AlertResponse;
 import com.sentinelx.alert.entity.AlertSeverity;
 import com.sentinelx.alert.entity.AlertStatus;
 import com.sentinelx.alert.exception.AlertAccessDeniedException;
+import com.sentinelx.alert.exception.AlertInvalidStatusTransitionException;
 import com.sentinelx.alert.repository.AlertRepository;
 import com.sentinelx.risk.dto.RiskScoreResponse;
 import com.sentinelx.risk.entity.RiskScore;
@@ -18,6 +19,7 @@ import com.sentinelx.risk.service.RiskScoreService;
 import com.sentinelx.user.entity.Role;
 import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
 import com.sentinelx.user.repository.RoleRepository;
 import com.sentinelx.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -35,6 +37,7 @@ class AlertServiceTest {
 
     private static final String TEST_SECRET =
         "alert_service_test_secret_with_sufficient_length_123456789";
+    private static final String DEFAULT_PASSWORD_HASH = "hashed-password";
 
     @Autowired
     private AlertService alertService;
@@ -149,6 +152,79 @@ class AlertServiceTest {
         assertEquals(1, alertRepository.count());
     }
 
+    @Test
+    void updateAlertStatusOpenToUnderInvestigationSucceeds() {
+        User owner = createUserWithRole("gina", "gina@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 78, "risk"));
+
+        AlertResponse updated = alertService.updateAlertStatus(
+            alert.id(),
+            AlertStatus.UNDER_INVESTIGATION,
+            owner
+        );
+
+        assertEquals(AlertStatus.UNDER_INVESTIGATION, updated.status());
+    }
+
+    @Test
+    void updateAlertStatusOpenToResolvedThrowsIllegalTransitionException() {
+        User owner = createUserWithRole("hank", "hank@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 72, "risk"));
+
+        assertThrows(
+            AlertInvalidStatusTransitionException.class,
+            () -> alertService.updateAlertStatus(alert.id(), AlertStatus.RESOLVED, owner)
+        );
+    }
+
+    @Test
+    void updateAlertStatusUnderInvestigationToResolvedSucceeds() {
+        User owner = createUserWithRole("ivy", "ivy@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 82, "risk"));
+
+        alertService.updateAlertStatus(alert.id(), AlertStatus.UNDER_INVESTIGATION, owner);
+        AlertResponse resolved = alertService.updateAlertStatus(alert.id(), AlertStatus.RESOLVED, owner);
+
+        assertEquals(AlertStatus.RESOLVED, resolved.status());
+    }
+
+    @Test
+    void updateAlertStatusResolvedToOpenThrowsIllegalTransitionException() {
+        User owner = createUserWithRole("jack", "jack@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 89, "risk"));
+
+        alertService.updateAlertStatus(alert.id(), AlertStatus.UNDER_INVESTIGATION, owner);
+        alertService.updateAlertStatus(alert.id(), AlertStatus.RESOLVED, owner);
+
+        assertThrows(
+            AlertInvalidStatusTransitionException.class,
+            () -> alertService.updateAlertStatus(alert.id(), AlertStatus.OPEN, owner)
+        );
+    }
+
+    @Test
+    void assignAlertWithNonexistentAssigneeThrowsResourceNotFoundException() {
+        User analyst = createUserWithRole("analyst", "analyst@example.com", RoleType.ANALYST);
+        User owner = createUserWithRole("owner2", "owner2@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 77, "risk"));
+
+        assertThrows(
+            ResourceNotFoundException.class,
+            () -> alertService.assignAlert(alert.id(), 9999L, analyst)
+        );
+    }
+
+    @Test
+    void deleteAlertByAdminRemovesAlert() {
+        User admin = createUserWithRole("admin2", "admin2@example.com", RoleType.ADMIN);
+        User owner = createUserWithRole("owner3", "owner3@example.com", RoleType.EMPLOYEE);
+        AlertResponse alert = alertService.generateAlert(owner, createRiskScore(owner, 84, "risk"));
+
+        alertService.deleteAlert(alert.id(), admin);
+
+        assertEquals(0, alertRepository.count());
+    }
+
     private User createUserWithRole(String username, String email, RoleType roleType) {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role createdRole = new Role();
@@ -159,7 +235,7 @@ class AlertServiceTest {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
-        user.setPasswordHash("hashed-password");
+        user.setPasswordHash(DEFAULT_PASSWORD_HASH);
         user.setRole(role);
         user.setActive(true);
         return userRepository.save(user);
