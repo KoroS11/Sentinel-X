@@ -2,6 +2,7 @@ package com.sentinelx.activity.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.sentinelx.activity.dto.ActivityResponse;
 import com.sentinelx.activity.entity.Activity;
@@ -9,6 +10,7 @@ import com.sentinelx.activity.repository.ActivityRepository;
 import com.sentinelx.user.entity.Role;
 import com.sentinelx.user.entity.RoleType;
 import com.sentinelx.user.entity.User;
+import com.sentinelx.user.exception.ResourceNotFoundException;
 import com.sentinelx.user.repository.RoleRepository;
 import com.sentinelx.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,8 @@ class ActivityServiceTest {
     private static final String ENTITY_TYPE_USER = "USER";
     private static final String ENTITY_ID_1 = "1";
     private static final String METADATA_IP = "{\"ip\":\"127.0.0.1\"}";
+    private static final long UNKNOWN_USER_ID = 9999L;
+    private static final long UNKNOWN_ACTIVITY_ID = 9999L;
 
     @Autowired
     private ActivityService activityService;
@@ -71,6 +75,34 @@ class ActivityServiceTest {
 
         assertEquals(2, page.getTotalElements());
         page.getContent().forEach(activity -> assertEquals(userOne.getId(), activity.userId()));
+    }
+
+    @Test
+    void getActivitiesByUserIdWithUnknownUserIdThrowsResourceNotFoundException() {
+        assertThrows(
+            ResourceNotFoundException.class,
+            () -> activityService.getActivitiesByUserId(UNKNOWN_USER_ID, PageRequest.of(0, 10))
+        );
+    }
+
+    @Test
+    void getActivitiesByUserIdReturnsOnlyThatUsersActivities() {
+        User userOne = createUser("david", "david@example.com");
+        User userTwo = createUser("emma", "emma@example.com");
+
+        activityService.logActivity(userOne, "CREATE", "ALERT", "A-11", "meta-1");
+        activityService.logActivity(userOne, "UPDATE", "ALERT", "A-12", "meta-2");
+        activityService.logActivity(userTwo, "DELETE", "ALERT", "A-13", "meta-3");
+
+        Page<ActivityResponse> page = activityService.getActivitiesByUserId(userOne.getId(), PageRequest.of(0, 10));
+
+        assertEquals(2, page.getTotalElements());
+        page.getContent().forEach(activity -> assertEquals(userOne.getId(), activity.userId()));
+    }
+
+    @Test
+    void getActivityByIdWithUnknownIdThrowsResourceNotFoundException() {
+        assertThrows(ResourceNotFoundException.class, () -> activityService.getActivityById(UNKNOWN_ACTIVITY_ID));
     }
 
     private User createUser(String username, String email) {
