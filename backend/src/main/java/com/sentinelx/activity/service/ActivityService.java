@@ -25,7 +25,7 @@ public class ActivityService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void logActivity(
         User user,
         String action,

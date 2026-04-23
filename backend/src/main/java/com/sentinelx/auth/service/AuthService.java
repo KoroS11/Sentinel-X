@@ -20,6 +20,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -50,6 +52,7 @@ public class AuthService {
         this.emailVerificationService = emailVerificationService;
     }
 
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateEmailException("Email is already registered.");
@@ -71,6 +74,7 @@ public class AuthService {
         return createAuthResponse(savedUser, null);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public AuthResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
@@ -90,12 +94,14 @@ public class AuthService {
         return createAuthResponse(user, refreshToken.getToken());
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void logout(String username) {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new InvalidCredentialsException("Invalid user context."));
         refreshTokenService.revokeAllUserTokens(user);
     }
 
+    @Transactional(readOnly = true)
     public AuthResponse createAuthResponse(User user, String refreshToken) {
         String token = jwtTokenProvider.generateToken(
             user.getUsername(),

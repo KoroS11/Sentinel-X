@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -37,7 +38,7 @@ public class AlertService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AlertResponse generateAlert(User user, RiskScore score) {
         Alert alert = new Alert();
         alert.setUser(user);
@@ -49,12 +50,12 @@ public class AlertService {
         return AlertResponse.fromEntity(saved);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AlertResponse acknowledgeAlert(Long alertId, User requestingUser) {
         return updateAlertStatus(alertId, AlertStatus.ACKNOWLEDGED, requestingUser);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AlertResponse resolveAlert(Long alertId, User requestingUser) {
         Alert alert = findAlert(alertId);
         if (alert.getStatus() == AlertStatus.OPEN) {
@@ -70,7 +71,7 @@ public class AlertService {
         return AlertResponse.fromEntity(alert);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AlertResponse updateAlertStatus(Long id, AlertStatus newStatus, User requestingUser) {
         Alert alert = findAlert(id);
         assertModifyAccess(alert, requestingUser);
@@ -82,7 +83,7 @@ public class AlertService {
         return AlertResponse.fromEntity(alertRepository.save(alert));
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AlertResponse assignAlert(Long id, Long assigneeUserId, User requestingUser) {
         assertAdminOrAnalyst(requestingUser);
 
@@ -95,7 +96,7 @@ public class AlertService {
         return AlertResponse.fromEntity(alertRepository.save(alert));
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteAlert(Long id, User requestingUser) {
         assertAdmin(requestingUser);
         Alert alert = findAlert(id);

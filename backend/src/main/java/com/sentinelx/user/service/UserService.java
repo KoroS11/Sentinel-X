@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -56,7 +57,7 @@ public class UserService {
         return UserResponse.fromEntity(findExistingUser(id));
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     public UserResponse createUser(CreateUserRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateEmailException(EMAIL_ALREADY_REGISTERED);
@@ -78,7 +79,7 @@ public class UserService {
         return UserResponse.fromEntity(savedUser);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         User user = findExistingUser(id);
 
@@ -96,7 +97,7 @@ public class UserService {
         return UserResponse.fromEntity(userRepository.save(user));
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteUser(Long id) {
         User user = findExistingUser(id);
 
@@ -111,7 +112,7 @@ public class UserService {
         userRepository.delete(user);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public UserResponse updateUserStatus(Long id, UserStatusRequest request) {
         User user = findExistingUser(id);
         user.setStatus(request.status());
