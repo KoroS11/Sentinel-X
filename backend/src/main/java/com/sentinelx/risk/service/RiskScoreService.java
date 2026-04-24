@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -55,7 +56,7 @@ public class RiskScoreService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED)
     public RiskScoreResponse evaluateRisk(User user) {
         Page<Activity> page = activityRepository.findAllByUser(
             user,
@@ -100,7 +101,7 @@ public class RiskScoreService {
             .map(RiskScoreResponse::fromEntity);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public RiskScoreResponse getLatestRiskScoreByUserId(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
