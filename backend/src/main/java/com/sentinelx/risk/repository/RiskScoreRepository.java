@@ -39,16 +39,16 @@ public interface RiskScoreRepository extends JpaRepository<RiskScore, Long> {
         """)
     long countUsersWithLatestScoreAtLeast(@Param("threshold") int threshold);
 
-    @Query("""
+    @Query(nativeQuery = true, value = """
         select
-            FUNCTION('YEAR', rs.calculatedAt),
-            FUNCTION('WEEK', rs.calculatedAt),
-            avg(rs.score),
-            sum(case when rs.score >= :highRiskThreshold then 1 else 0 end)
-        from RiskScore rs
-        where rs.calculatedAt >= :startDateTime
-        group by FUNCTION('YEAR', rs.calculatedAt), FUNCTION('WEEK', rs.calculatedAt)
-        order by FUNCTION('YEAR', rs.calculatedAt), FUNCTION('WEEK', rs.calculatedAt)
+            extract(year from calculated_at)::int as year,
+            extract(week from calculated_at)::int as week,
+            avg(score) as avg_score,
+            sum(case when score >= :highRiskThreshold then 1 else 0 end)::bigint as high_risk_count
+        from risk_scores
+        where calculated_at >= :startDateTime
+        group by extract(year from calculated_at), extract(week from calculated_at)
+        order by extract(year from calculated_at), extract(week from calculated_at)
         """)
     List<Object[]> findWeeklyRiskTrendForPeriod(
         @Param("startDateTime") LocalDateTime startDateTime,
