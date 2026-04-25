@@ -23,12 +23,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest(properties = {
     "spring.flyway.enabled=false",
     "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @Import({RiskScoreService.class, BasicRiskScoringStrategy.class, AlertService.class})
+@ActiveProfiles("test")
 class RiskScoreServiceTest {
 
     private static final long UNKNOWN_USER_ID = 9999L;

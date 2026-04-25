@@ -31,6 +31,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:emailverificationtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -44,6 +45,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
     "jwt.refresh-expiration-ms=604800000"
 })
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class EmailVerificationServiceTest {
 
     @Autowired

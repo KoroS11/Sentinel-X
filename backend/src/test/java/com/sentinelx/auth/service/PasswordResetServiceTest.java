@@ -29,6 +29,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:passwordresettest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -41,7 +42,7 @@ import org.springframework.test.context.TestPropertySource;
     "jwt.expiration-ms=3600000",
     "jwt.refresh-expiration-ms=604800000"
 })
-@TestPropertySource(properties = "spring.profiles.active=dev")
+@ActiveProfiles("test")
 class PasswordResetServiceTest {
 
     @Autowired
