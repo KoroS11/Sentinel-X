@@ -30,10 +30,12 @@ public class StartupEnvValidator implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         // Skip validation in test environments
         String[] activeProfiles = environment.getActiveProfiles();
-        for (String profile : activeProfiles) {
-            if ("test".equals(profile)) {
-                log.debug("Test profile detected. Skipping environment variable validation.");
-                return;
+        if (activeProfiles != null) {
+            for (String profile : activeProfiles) {
+                if ("test".equals(profile)) {
+                    log.debug("Test profile detected. Skipping environment variable validation.");
+                    return;
+                }
             }
         }
 
