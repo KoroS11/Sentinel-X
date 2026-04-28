@@ -1,7 +1,6 @@
 package com.sentinelx.dashboard.repository;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -26,9 +25,6 @@ public class DashboardJdbcRepository {
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    @Autowired
-    private RetryableReadService retryableReadService;
-
     public DashboardJdbcRepository(NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
     }
@@ -42,34 +38,32 @@ public class DashboardJdbcRepository {
      * @throws DataAccessException if query fails
      */
     public Map<String, Long> getActivityCountByUser(Instant from, Instant to) {
-        return retryableReadService.executeRead("dashboard.getActivityCountByUser", () -> {
-            log.debug("DashboardJdbcRepository.getActivityCountByUser called with from={}, to={}", from, to);
+        log.debug("DashboardJdbcRepository.getActivityCountByUser called with from={}, to={}", from, to);
 
-            try {
-                String sql = "SELECT user_id, COUNT(*) AS cnt " +
-                        "FROM activities " +
-                        "WHERE created_at BETWEEN :from AND :to " +
-                        "GROUP BY user_id ORDER BY cnt DESC";
+        try {
+            String sql = "SELECT user_id, COUNT(*) AS cnt " +
+                    "FROM activities " +
+                    "WHERE created_at BETWEEN :from AND :to " +
+                    "GROUP BY user_id ORDER BY cnt DESC";
 
-                MapSqlParameterSource params = new MapSqlParameterSource()
-                        .addValue("from", from)
-                        .addValue("to", to);
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("from", from)
+                    .addValue("to", to);
 
-                List<Map<String, Object>> rows = namedParameterJdbcTemplate.queryForList(sql, params);
-                
-                Map<String, Long> result = new HashMap<>();
-                for (Map<String, Object> row : rows) {
-                    Long userId = ((Number) row.get("user_id")).longValue();
-                    Long count = ((Number) row.get("cnt")).longValue();
-                    result.put(userId.toString(), count);
-                }
-                
-                return result;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getActivityCountByUser failed: {}", e.getMessage());
-                throw e;
+            List<Map<String, Object>> rows = namedParameterJdbcTemplate.queryForList(sql, params);
+            
+            Map<String, Long> result = new HashMap<>();
+            for (Map<String, Object> row : rows) {
+                Long userId = ((Number) row.get("user_id")).longValue();
+                Long count = ((Number) row.get("cnt")).longValue();
+                result.put(userId.toString(), count);
             }
-        });
+            
+            return result;
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getActivityCountByUser failed: {}", e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -81,26 +75,24 @@ public class DashboardJdbcRepository {
      * @param limit maximum number of users to return
      * @return list of maps with userId, username, and latestScore
      * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getTopRiskyUsers", () -> {
-            log.debug("DashboardJdbcRepository.getTopRiskyUsers called with limit={}", limit);
+     */
+    public List<Map<String, Object>> getTopRiskyUsers(int limit) {
+        log.debug("DashboardJdbcRepository.getTopRiskyUsers called with limit={}", limit);
 
-            try {
-                String sql = "SELECT u.id AS userId, u.username, rs.score AS latestScore " +
-                        "FROM users u " +
-                        "JOIN (SELECT DISTINCT ON (user_id) user_id, score " +
-                        "      FROM risk_scores " +
-                        "      ORDER BY user_id, calculated_at DESC) rs ON rs.user_id = u.id " +
-                        "ORDER BY rs.score DESC " +
-                        "LIMIT :limit";
+        try {
+            String sql = "SELECT u.id AS userId, u.username, rs.score AS latestScore " +
+                    "FROM users u " +
+                    "JOIN (SELECT DISTINCT ON (user_id) user_id, score " +
+                    "      FROM risk_scores " +
+                    "      ORDER BY user_id, calculated_at DESC) rs ON rs.user_id = u.id " +
+                    "ORDER BY rs.score DESC " +
+                    "LIMIT :limit";
 
-                MapSqlParameterSource params = new MapSqlParameterSource("limit", limit);
+            MapSqlParameterSource params = new MapSqlParameterSource("limit", limit);
 
-                return namedParameterJdbcTemplate.queryForList(sql, params);
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
-                throw e;
-            }
-        });   log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
+            return namedParameterJdbcTemplate.queryForList(sql, params);
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
             throw e;
         }
     }
@@ -112,34 +104,32 @@ public class DashboardJdbcRepository {
      * @param to end time (inclusive)
      * @return map with status as key and alert count as value
      * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getAlertCountsByStatus", () -> {
-            log.debug("DashboardJdbcRepository.getAlertCountsByStatus called with from={}, to={}", from, to);
+     */
+    public Map<String, Long> getAlertCountsByStatus(Instant from, Instant to) {
+        log.debug("DashboardJdbcRepository.getAlertCountsByStatus called with from={}, to={}", from, to);
 
-            try {
-                String sql = "SELECT status, COUNT(*) AS cnt " +
-                        "FROM alerts " +
-                        "WHERE created_at BETWEEN :from AND :to " +
-                        "GROUP BY status";
+        try {
+            String sql = "SELECT status, COUNT(*) AS cnt " +
+                    "FROM alerts " +
+                    "WHERE created_at BETWEEN :from AND :to " +
+                    "GROUP BY status";
 
-                MapSqlParameterSource params = new MapSqlParameterSource()
-                        .addValue("from", from)
-                        .addValue("to", to);
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("from", from)
+                    .addValue("to", to);
 
-                List<Map<String, Object>> rows = namedParameterJdbcTemplate.queryForList(sql, params);
-                
-                Map<String, Long> result = new HashMap<>();
-                for (Map<String, Object> row : rows) {
-                    String status = (String) row.get("status");
-                    Long count = ((Number) row.get("cnt")).longValue();
-                    result.put(status, count);
-                }
-                
-                return result;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
-                throw e;
+            List<Map<String, Object>> rows = namedParameterJdbcTemplate.queryForList(sql, params);
+            
+            Map<String, Long> result = new HashMap<>();
+            for (Map<String, Object> row : rows) {
+                String status = (String) row.get("status");
+                Long count = ((Number) row.get("cnt")).longValue();
+                result.put(status, count);
             }
-        });   log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
+            
+            return result;
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
             throw e;
         }
     }
@@ -150,25 +140,23 @@ public class DashboardJdbcRepository {
      * @param lastNDays number of days to look back
      * @return list of maps with alertDate and cnt fields, ordered chronologically ascending
      * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getAlertTrendByDay", () -> {
-            log.debug("DashboardJdbcRepository.getAlertTrendByDay called with lastNDays={}", lastNDays);
+     */
+    public List<Map<String, Object>> getAlertTrendByDay(int lastNDays) {
+        log.debug("DashboardJdbcRepository.getAlertTrendByDay called with lastNDays={}", lastNDays);
 
-            try {
-                Instant cutoff = Instant.now().minus(lastNDays, ChronoUnit.DAYS);
+        try {
+            Instant cutoff = Instant.now().minus(lastNDays, ChronoUnit.DAYS);
 
-                String sql = "SELECT DATE(created_at) AS alertDate, COUNT(*) AS cnt " +
-                        "FROM alerts " +
-                        "WHERE created_at >= :cutoff " +
-                        "GROUP BY alertDate ORDER BY alertDate ASC";
+            String sql = "SELECT DATE(created_at) AS alertDate, COUNT(*) AS cnt " +
+                    "FROM alerts " +
+                    "WHERE created_at >= :cutoff " +
+                    "GROUP BY alertDate ORDER BY alertDate ASC";
 
-                MapSqlParameterSource params = new MapSqlParameterSource("cutoff", cutoff);
+            MapSqlParameterSource params = new MapSqlParameterSource("cutoff", cutoff);
 
-                return namedParameterJdbcTemplate.queryForList(sql, params);
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
-                throw e;
-            }
-        });   log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
+            return namedParameterJdbcTemplate.queryForList(sql, params);
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
             throw e;
         }
     }
@@ -176,58 +164,56 @@ public class DashboardJdbcRepository {
     /**
      * Retrieves a system summary with key metrics.
      * 
-     * @return retryableReadService.executeRead("dashboard.getSystemSummary", () -> {
-            log.debug("DashboardJdbcRepository.getSystemSummary called");
+     * @return map with keys: totalUsers, totalActivities, openAlerts, highRiskUsers
+     * @throws DataAccessException if query fails
+     */
+    public Map<String, Long> getSystemSummary() {
+        log.debug("DashboardJdbcRepository.getSystemSummary called");
 
-            try {
-                Map<String, Long> summary = new HashMap<>();
+        try {
+            Map<String, Long> summary = new HashMap<>();
 
-                // Total users
-                String totalUsersSql = "SELECT COUNT(*) as cnt FROM users";
-                Long totalUsers = namedParameterJdbcTemplate.queryForObject(
-                        totalUsersSql,
-                        new MapSqlParameterSource(),
-                        Long.class
-                );
-                summary.put("totalUsers", totalUsers != null ? totalUsers : 0L);
+            // Total users
+            String totalUsersSql = "SELECT COUNT(*) as cnt FROM users";
+            Long totalUsers = namedParameterJdbcTemplate.queryForObject(
+                    totalUsersSql,
+                    new MapSqlParameterSource(),
+                    Long.class
+            );
+            summary.put("totalUsers", totalUsers != null ? totalUsers : 0L);
 
-                // Total activities
-                String totalActivitiesSql = "SELECT COUNT(*) as cnt FROM activities";
-                Long totalActivities = namedParameterJdbcTemplate.queryForObject(
-                        totalActivitiesSql,
-                        new MapSqlParameterSource(),
-                        Long.class
-                );
-                summary.put("totalActivities", totalActivities != null ? totalActivities : 0L);
+            // Total activities
+            String totalActivitiesSql = "SELECT COUNT(*) as cnt FROM activities";
+            Long totalActivities = namedParameterJdbcTemplate.queryForObject(
+                    totalActivitiesSql,
+                    new MapSqlParameterSource(),
+                    Long.class
+            );
+            summary.put("totalActivities", totalActivities != null ? totalActivities : 0L);
 
-                // Open alerts
-                String openAlertsSql = "SELECT COUNT(*) as cnt FROM alerts WHERE status = 'OPEN'";
-                Long openAlerts = namedParameterJdbcTemplate.queryForObject(
-                        openAlertsSql,
-                        new MapSqlParameterSource(),
-                        Long.class
-                );
-                summary.put("openAlerts", openAlerts != null ? openAlerts : 0L);
+            // Open alerts
+            String openAlertsSql = "SELECT COUNT(*) as cnt FROM alerts WHERE status = 'OPEN'";
+            Long openAlerts = namedParameterJdbcTemplate.queryForObject(
+                    openAlertsSql,
+                    new MapSqlParameterSource(),
+                    Long.class
+            );
+            summary.put("openAlerts", openAlerts != null ? openAlerts : 0L);
 
-                // High risk users (score >= 60)
-                String highRiskUsersSql = "SELECT COUNT(DISTINCT user_id) as cnt FROM risk_scores WHERE score >= :threshold";
-                MapSqlParameterSource highRiskParams = new MapSqlParameterSource(
-                        "threshold",
-                        HIGH_RISK_USER_THRESHOLD
-                );
-                Long highRiskUsers = namedParameterJdbcTemplate.queryForObject(
-                        highRiskUsersSql,
-                        highRiskParams,
-                        Long.class
-                );
-                summary.put("highRiskUsers", highRiskUsers != null ? highRiskUsers : 0L);
+            // High risk users (score >= 60)
+            String highRiskUsersSql = "SELECT COUNT(DISTINCT user_id) as cnt FROM risk_scores WHERE score >= :threshold";
+            MapSqlParameterSource highRiskParams = new MapSqlParameterSource(
+                    "threshold",
+                    HIGH_RISK_USER_THRESHOLD
+            );
+            Long highRiskUsers = namedParameterJdbcTemplate.queryForObject(
+                    highRiskUsersSql,
+                    highRiskParams,
+                    Long.class
+            );
+            summary.put("highRiskUsers", highRiskUsers != null ? highRiskUsers : 0L);
 
-                return summary;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getSystemSummary failed: {}", e.getMessage());
-                throw e;
-            }
-        });   return summary;
+            return summary;
         } catch (Exception e) {
             log.error("DashboardJdbcRepository.getSystemSummary failed: {}", e.getMessage());
             throw e;
