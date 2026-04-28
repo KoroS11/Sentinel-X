@@ -54,8 +54,8 @@ public class DashboardJdbcRepositoryTest {
             stmt.execute("DELETE FROM roles");
 
             // Insert test roles
-            stmt.execute("INSERT INTO roles (id, name, created_at) " +
-                    "VALUES (1, 'USER_ROLE', NOW())");
+            stmt.execute("INSERT INTO roles (id, name, created_at, updated_at) " +
+                    "VALUES (1, 'USER_ROLE', NOW(), NOW())");
 
             // Insert test users
             stmt.execute("INSERT INTO users (id, username, email, password_hash, status, is_active, email_verified, role_id, created_at, updated_at) " +
