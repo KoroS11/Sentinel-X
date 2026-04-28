@@ -51,14 +51,19 @@ public class DashboardJdbcRepositoryTest {
             stmt.execute("DELETE FROM risk_scores");
             stmt.execute("DELETE FROM activities");
             stmt.execute("DELETE FROM users");
+            stmt.execute("DELETE FROM roles");
+
+            // Insert test roles
+            stmt.execute("INSERT INTO roles (id, name, created_at) " +
+                    "VALUES (1, 'USER_ROLE', NOW())");
 
             // Insert test users
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (1, 'user1', 'user1@test.com', 'hashed_pwd', 'ACTIVE')");
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (2, 'user2', 'user2@test.com', 'hashed_pwd', 'ACTIVE')");
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (3, 'user3', 'user3@test.com', 'hashed_pwd', 'ACTIVE')");
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, is_active, email_verified, role_id, created_at, updated_at) " +
+                    "VALUES (1, 'user1', 'user1@test.com', 'hashed_pwd', 'ACTIVE', true, true, 1, NOW(), NOW())");
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, is_active, email_verified, role_id, created_at, updated_at) " +
+                    "VALUES (2, 'user2', 'user2@test.com', 'hashed_pwd', 'ACTIVE', true, true, 1, NOW(), NOW())");
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, is_active, email_verified, role_id, created_at, updated_at) " +
+                    "VALUES (3, 'user3', 'user3@test.com', 'hashed_pwd', 'ACTIVE', true, true, 1, NOW(), NOW())");
 
             // Insert test activities
             Instant now = Instant.now();
