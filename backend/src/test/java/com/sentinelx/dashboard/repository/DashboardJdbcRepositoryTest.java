@@ -55,7 +55,7 @@ public class DashboardJdbcRepositoryTest {
 
             // Insert test roles
             stmt.execute("INSERT INTO roles (id, name, created_at, updated_at) " +
-                    "VALUES (1, 'USER_ROLE', NOW(), NOW())");
+                    "VALUES (1, 'EMPLOYEE', NOW(), NOW())");
 
             // Insert test users
             stmt.execute("INSERT INTO users (id, username, email, password_hash, status, is_active, email_verified, role_id, created_at, updated_at) " +
