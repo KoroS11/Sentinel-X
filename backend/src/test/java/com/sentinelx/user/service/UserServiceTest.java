@@ -34,6 +34,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class UserServiceTest {
 
     private static final String TEST_SECRET =
