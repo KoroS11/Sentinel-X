@@ -65,8 +65,9 @@ public class SslConfigValidatorTest {
                     // Context should have failed
                     assertThat(context).hasFailed();
                     // Verify the exception message is readable and contains expected text
-                    assertThat(context.getStartupFailure())
-                            .isInstanceOf(IllegalStateException.class)
+                    Throwable failure = context.getStartupFailure();
+                    assertThat(failure)
+                            .hasCauseInstanceOf(IllegalStateException.class)
                             .hasMessageContaining("rootCertPath is required");
                 });
     }
@@ -88,8 +89,9 @@ public class SslConfigValidatorTest {
                     // Context should have failed
                     assertThat(context).hasFailed();
                     // Verify the exception message is readable and contains expected text
-                    assertThat(context.getStartupFailure())
-                            .isInstanceOf(IllegalStateException.class)
+                    Throwable failure = context.getStartupFailure();
+                    assertThat(failure)
+                            .hasCauseInstanceOf(IllegalStateException.class)
                             .hasMessageContaining("not found at path");
                 });
     }
