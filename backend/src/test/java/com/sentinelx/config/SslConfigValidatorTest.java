@@ -51,7 +51,7 @@ public class SslConfigValidatorTest {
     /**
      * Test that context fails to load when SSL is enabled with "verify-full" mode
      * but db.ssl.rootCertPath is blank or missing.
-     * Should throw IllegalStateException with message about required rootCertPath.
+     * Should throw BeanCreationException with message about required rootCertPath.
      */
     @Test
     public void testSslVerifyFull_blankCertPath_failsWithReadableMessage() {
@@ -65,8 +65,9 @@ public class SslConfigValidatorTest {
                     // Context should have failed
                     assertThat(context).hasFailed();
                     // Verify the exception message is readable and contains expected text
-                    assertThat(context.getStartupFailure())
-                            .isInstanceOf(IllegalStateException.class)
+                    Throwable failure = context.getStartupFailure();
+                    assertThat(failure)
+                            .hasCauseInstanceOf(IllegalStateException.class)
                             .hasMessageContaining("rootCertPath is required");
                 });
     }
@@ -74,7 +75,7 @@ public class SslConfigValidatorTest {
     /**
      * Test that context fails to load when SSL is enabled with "verify-full" mode
      * and db.ssl.rootCertPath points to a non-existent file.
-     * Should throw IllegalStateException with message about file not found.
+     * Should throw BeanCreationException with message about file not found.
      */
     @Test
     public void testSslVerifyFull_missingCertFile_failsWithReadableMessage() {
@@ -88,8 +89,9 @@ public class SslConfigValidatorTest {
                     // Context should have failed
                     assertThat(context).hasFailed();
                     // Verify the exception message is readable and contains expected text
-                    assertThat(context.getStartupFailure())
-                            .isInstanceOf(IllegalStateException.class)
+                    Throwable failure = context.getStartupFailure();
+                    assertThat(failure)
+                            .hasCauseInstanceOf(IllegalStateException.class)
                             .hasMessageContaining("not found at path");
                 });
     }
@@ -110,8 +112,9 @@ public class SslConfigValidatorTest {
                 .run(context -> {
                     // Context should have failed (verify-ca also requires certificate path)
                     assertThat(context).hasFailed();
-                    assertThat(context.getStartupFailure())
-                            .isInstanceOf(IllegalStateException.class)
+                    Throwable failure = context.getStartupFailure();
+                    assertThat(failure)
+                            .hasCauseInstanceOf(IllegalStateException.class)
                             .hasMessageContaining("rootCertPath is required");
                 });
     }
