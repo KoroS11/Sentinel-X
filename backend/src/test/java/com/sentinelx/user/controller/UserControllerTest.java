@@ -35,6 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.transaction.annotation.Transactional
 class UserControllerTest {
 
     private static final String TEST_SECRET =
@@ -83,8 +84,12 @@ class UserControllerTest {
         registry.add("jwt.refresh-expiration-ms", () -> "604800000");
     }
 
+    @Autowired
+    private com.sentinelx.user.service.RoleService roleService;
+
     @BeforeEach
     void setUp() {
+        roleService.ensureDefaultRoles();
         emailVerificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         refreshTokenRepository.deleteAll();

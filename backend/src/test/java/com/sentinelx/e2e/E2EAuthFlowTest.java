@@ -33,6 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@org.springframework.transaction.annotation.Transactional
 class E2EAuthFlowTest {
 
     private static final String DB_URL = "jdbc:h2:mem:e2eauthflowtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
@@ -97,8 +98,12 @@ class E2EAuthFlowTest {
         registry.add("jwt.refresh-expiration-ms", () -> JWT_REFRESH_EXPIRATION_MS);
     }
 
+    @Autowired
+    private com.sentinelx.user.service.RoleService roleService;
+
     @BeforeEach
     void setUp() {
+        roleService.ensureDefaultRoles();
         emailVerificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         refreshTokenRepository.deleteAll();

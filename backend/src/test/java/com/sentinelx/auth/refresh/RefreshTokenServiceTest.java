@@ -128,7 +128,7 @@ class RefreshTokenServiceTest {
     private User createUser(String username, String email) {
         Role role = new Role();
         role.setName(RoleType.EMPLOYEE);
-        role = roleRepository.save(role);
+        role = roleRepository.saveAndFlush(role);
 
         User user = new User();
         user.setUsername(username);

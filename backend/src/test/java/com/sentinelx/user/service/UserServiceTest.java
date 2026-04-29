@@ -34,6 +34,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest
+@org.springframework.transaction.annotation.Transactional
 class UserServiceTest {
 
     private static final String TEST_SECRET =
@@ -69,8 +70,12 @@ class UserServiceTest {
         registry.add("jwt.refresh-expiration-ms", () -> "604800000");
     }
 
+    @Autowired
+    private RoleService roleService;
+
     @BeforeEach
     void setUp() {
+        roleService.ensureDefaultRoles();
         userRepository.deleteAll();
     }
 

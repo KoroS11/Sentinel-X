@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.transaction.annotation.Transactional
 class RiskControllerTest {
 
     private static final String TEST_SECRET =
@@ -246,7 +247,7 @@ class RiskControllerTest {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role newRole = new Role();
             newRole.setName(roleType);
-            return roleRepository.save(newRole);
+            return roleRepository.saveAndFlush(newRole);
         });
 
         User user = new User();

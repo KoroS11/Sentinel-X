@@ -43,7 +43,7 @@ class CustomUserDetailsServiceTest {
     void loadingExistingUserReturnsCorrectAuthorities() {
         Role analystRole = new Role();
         analystRole.setName(RoleType.ANALYST);
-        analystRole = roleRepository.save(analystRole);
+        analystRole = roleRepository.saveAndFlush(analystRole);
 
         User user = new User();
         user.setUsername("alice");

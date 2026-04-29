@@ -6,6 +6,9 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.sentinelx.common.service.RetryableReadService;
+import org.springframework.dao.DataAccessException;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -33,19 +36,10 @@ public class DashboardJdbcRepository {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
     }
 
-    /**
-     * Retrieves activity count grouped by user within a time range.
-     * 
-     * @param from start time (inclusive)
-     * @param to end time (inclusive)
-     * @return map with user_id as key and activity count as value, sorted descending by count
-     * @throws DataAccessException if query fails
-     */
     public Map<String, Long> getActivityCountByUser(Instant from, Instant to) {
-        return retryableReadService.executeRead("dashboard.getActivityCountByUser", () -> {
-            log.debug("DashboardJdbcRepository.getActivityCountByUser called with from={}, to={}", from, to);
-
-            try {
+        try {
+            return retryableReadService.executeRead("dashboard.getActivityCountByUser", () -> {
+                log.debug("DashboardJdbcRepository.getActivityCountByUser called with from={}, to={}", from, to);
                 String sql = "SELECT user_id, COUNT(*) AS cnt " +
                         "FROM activities " +
                         "WHERE created_at BETWEEN :from AND :to " +
@@ -65,57 +59,47 @@ public class DashboardJdbcRepository {
                 }
                 
                 return result;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getActivityCountByUser failed: {}", e.getMessage());
-                throw e;
-            }
-        });
+            });
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getActivityCountByUser failed: {}", e.getMessage());
+            if (e instanceof DataAccessException) throw (DataAccessException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            throw new RuntimeException("Database error in getActivityCountByUser", e);
+        }
     }
 
-    /**
-     * Retrieves the top risky users based on their latest risk score.
-     * 
-     * Uses PostgreSQL-specific DISTINCT ON to get latest score per user.
-     * Results ordered by score descending.
-     * 
-     * @param limit maximum number of users to return
-     * @return list of maps with userId, username, and latestScore
-     * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getTopRiskyUsers", () -> {
-            log.debug("DashboardJdbcRepository.getTopRiskyUsers called with limit={}", limit);
-
-            try {
+    public List<Map<String, Object>> getTopRiskyUsers(int limit) {
+        try {
+            return retryableReadService.executeRead("dashboard.getTopRiskyUsers", () -> {
+                log.debug("DashboardJdbcRepository.getTopRiskyUsers called with limit={}", limit);
+                // Correlated subquery — works on H2 and PostgreSQL (no DISTINCT ON)
                 String sql = "SELECT u.id AS userId, u.username, rs.score AS latestScore " +
                         "FROM users u " +
-                        "JOIN (SELECT DISTINCT ON (user_id) user_id, score " +
-                        "      FROM risk_scores " +
-                        "      ORDER BY user_id, calculated_at DESC) rs ON rs.user_id = u.id " +
+                        "JOIN (SELECT r1.user_id, r1.score " +
+                        "      FROM risk_scores r1 " +
+                        "      WHERE r1.calculated_at = (" +
+                        "          SELECT MAX(r2.calculated_at) " +
+                        "          FROM risk_scores r2 " +
+                        "          WHERE r2.user_id = r1.user_id" +
+                        "      )) rs ON rs.user_id = u.id " +
                         "ORDER BY rs.score DESC " +
                         "LIMIT :limit";
 
                 MapSqlParameterSource params = new MapSqlParameterSource("limit", limit);
-
                 return namedParameterJdbcTemplate.queryForList(sql, params);
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
-                throw e;
-            }
-        });   log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
-            throw e;
+            });
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getTopRiskyUsers failed: {}", e.getMessage());
+            if (e instanceof DataAccessException) throw (DataAccessException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            throw new RuntimeException("Database error in getTopRiskyUsers", e);
         }
     }
 
-    /**
-     * Retrieves alert counts grouped by status within a time range.
-     * 
-     * @param from start time (inclusive)
-     * @param to end time (inclusive)
-     * @return map with status as key and alert count as value
-     * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getAlertCountsByStatus", () -> {
-            log.debug("DashboardJdbcRepository.getAlertCountsByStatus called with from={}, to={}", from, to);
-
-            try {
+    public Map<String, Long> getAlertCountsByStatus(Instant from, Instant to) {
+        try {
+            return retryableReadService.executeRead("dashboard.getAlertCountsByStatus", () -> {
+                log.debug("DashboardJdbcRepository.getAlertCountsByStatus called with from={}, to={}", from, to);
                 String sql = "SELECT status, COUNT(*) AS cnt " +
                         "FROM alerts " +
                         "WHERE created_at BETWEEN :from AND :to " +
@@ -135,51 +119,43 @@ public class DashboardJdbcRepository {
                 }
                 
                 return result;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
-                throw e;
-            }
-        });   log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
-            throw e;
+            });
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getAlertCountsByStatus failed: {}", e.getMessage());
+            if (e instanceof DataAccessException) throw (DataAccessException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            throw new RuntimeException("Database error in getAlertCountsByStatus", e);
         }
     }
 
-    /**
-     * Retrieves alert trend data (daily alert counts) for the last N days.
-     * 
-     * @param lastNDays number of days to look back
-     * @return list of maps with alertDate and cnt fields, ordered chronologically ascending
-     * @throws DataAccessException if query fails
-     */return retryableReadService.executeRead("dashboard.getAlertTrendByDay", () -> {
-            log.debug("DashboardJdbcRepository.getAlertTrendByDay called with lastNDays={}", lastNDays);
-
-            try {
+    public List<Map<String, Object>> getAlertTrendByDay(int lastNDays) {
+        try {
+            return retryableReadService.executeRead("dashboard.getAlertTrendByDay", () -> {
+                log.debug("DashboardJdbcRepository.getAlertTrendByDay called with lastNDays={}", lastNDays);
                 Instant cutoff = Instant.now().minus(lastNDays, ChronoUnit.DAYS);
 
-                String sql = "SELECT DATE(created_at) AS alertDate, COUNT(*) AS cnt " +
+                // CAST(created_at AS DATE) is standard SQL — compatible with H2 and PostgreSQL
+                // GROUP BY expression repeated (not alias) for H2 compatibility
+                String sql = "SELECT CAST(created_at AS DATE) AS alertDate, COUNT(*) AS cnt " +
                         "FROM alerts " +
                         "WHERE created_at >= :cutoff " +
-                        "GROUP BY alertDate ORDER BY alertDate ASC";
+                        "GROUP BY CAST(created_at AS DATE) ORDER BY CAST(created_at AS DATE) ASC";
 
                 MapSqlParameterSource params = new MapSqlParameterSource("cutoff", cutoff);
-
                 return namedParameterJdbcTemplate.queryForList(sql, params);
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
-                throw e;
-            }
-        });   log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
-            throw e;
+            });
+        } catch (Exception e) {
+            log.error("DashboardJdbcRepository.getAlertTrendByDay failed: {}", e.getMessage());
+            if (e instanceof DataAccessException) throw (DataAccessException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            throw new RuntimeException("Database error in getAlertTrendByDay", e);
         }
     }
 
-    /**
-     * Retrieves a system summary with key metrics.
-     * 
-     * @return retryableReadService.executeRead("dashboard.getSystemSummary", () -> {
-            log.debug("DashboardJdbcRepository.getSystemSummary called");
-
-            try {
+    public Map<String, Long> getSystemSummary() {
+        try {
+            return retryableReadService.executeRead("dashboard.getSystemSummary", () -> {
+                log.debug("DashboardJdbcRepository.getSystemSummary called");
                 Map<String, Long> summary = new HashMap<>();
 
                 // Total users
@@ -223,14 +199,12 @@ public class DashboardJdbcRepository {
                 summary.put("highRiskUsers", highRiskUsers != null ? highRiskUsers : 0L);
 
                 return summary;
-            } catch (Exception e) {
-                log.error("DashboardJdbcRepository.getSystemSummary failed: {}", e.getMessage());
-                throw e;
-            }
-        });   return summary;
+            });
         } catch (Exception e) {
             log.error("DashboardJdbcRepository.getSystemSummary failed: {}", e.getMessage());
-            throw e;
+            if (e instanceof DataAccessException) throw (DataAccessException) e;
+            if (e instanceof RuntimeException) throw (RuntimeException) e;
+            throw new RuntimeException("Database error in getSystemSummary", e);
         }
     }
 }

@@ -32,8 +32,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
+@Transactional
 class AlertServiceTest {
 
     private static final String TEST_SECRET =
@@ -270,7 +272,7 @@ class AlertServiceTest {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role createdRole = new Role();
             createdRole.setName(roleType);
-            return roleRepository.save(createdRole);
+            return roleRepository.saveAndFlush(createdRole);
         });
 
         User user = new User();

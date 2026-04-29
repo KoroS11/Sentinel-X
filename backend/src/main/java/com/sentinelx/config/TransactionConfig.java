@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,8 +34,8 @@ public class TransactionConfig {
      * @return configured PlatformTransactionManager with default timeout
      */
     @Bean
-    public PlatformTransactionManager transactionManager(DataSource dataSource) {
-        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
+    public PlatformTransactionManager transactionManager(jakarta.persistence.EntityManagerFactory entityManagerFactory) {
+        org.springframework.orm.jpa.JpaTransactionManager transactionManager = new org.springframework.orm.jpa.JpaTransactionManager(entityManagerFactory);
         transactionManager.setDefaultTimeout(defaultTimeoutSeconds);
         log.info("Transaction manager configured: defaultTimeout={}s", defaultTimeoutSeconds);
         return transactionManager;

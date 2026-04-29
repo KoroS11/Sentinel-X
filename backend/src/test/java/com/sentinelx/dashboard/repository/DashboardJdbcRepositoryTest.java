@@ -52,13 +52,13 @@ public class DashboardJdbcRepositoryTest {
             stmt.execute("DELETE FROM activities");
             stmt.execute("DELETE FROM users");
 
-            // Insert test users
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (1, 'user1', 'user1@test.com', 'hashed_pwd', 'ACTIVE')");
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (2, 'user2', 'user2@test.com', 'hashed_pwd', 'ACTIVE')");
-            stmt.execute("INSERT INTO users (id, username, email, password, status) " +
-                    "VALUES (3, 'user3', 'user3@test.com', 'hashed_pwd', 'ACTIVE')");
+            // Insert test users using dynamic role lookup
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, role_id) " +
+                    "VALUES (1, 'user1', 'user1@test.com', 'hashed_pwd', 'ACTIVE', (SELECT id FROM roles WHERE name = 'EMPLOYEE' LIMIT 1))");
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, role_id) " +
+                    "VALUES (2, 'user2', 'user2@test.com', 'hashed_pwd', 'ACTIVE', (SELECT id FROM roles WHERE name = 'EMPLOYEE' LIMIT 1))");
+            stmt.execute("INSERT INTO users (id, username, email, password_hash, status, role_id) " +
+                    "VALUES (3, 'user3', 'user3@test.com', 'hashed_pwd', 'ACTIVE', (SELECT id FROM roles WHERE name = 'EMPLOYEE' LIMIT 1))");
 
             // Insert test activities
             Instant now = Instant.now();
@@ -180,8 +180,8 @@ public class DashboardJdbcRepositoryTest {
 
         // Verify chronological order (alertDate should be ascending)
         for (int i = 1; i < result.size(); i++) {
-            String prevDate = (String) result.get(i - 1).get("alertDate");
-            String currDate = (String) result.get(i).get("alertDate");
+            String prevDate = result.get(i - 1).get("alertDate").toString();
+            String currDate = result.get(i).get("alertDate").toString();
             assertThat(currDate).isGreaterThanOrEqualTo(prevDate);
         }
     }
@@ -204,18 +204,25 @@ public class DashboardJdbcRepositoryTest {
      * Uses mocked NamedParameterJdbcTemplate to simulate DataAccessException.
      */
     @Test
-    public void testRepositoryPropagatesException_whenSqlExecutionFails() {
+    public void testRepositoryPropagatesException_whenSqlExecutionFails() throws Exception {
         // Create a mock NamedParameterJdbcTemplate that throws DataAccessException
         NamedParameterJdbcTemplate mockTemplate = mock(NamedParameterJdbcTemplate.class);
 
         when(mockTemplate.queryForObject(
-                "SELECT COUNT(*) as cnt FROM users",
-                new MapSqlParameterSource(),
-                Long.class
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(MapSqlParameterSource.class),
+                org.mockito.ArgumentMatchers.eq(Long.class)
         )).thenThrow(new DataAccessException("Simulated SQL error") {});
 
         // Create repository instance with mocked template
         DashboardJdbcRepository testRepository = new DashboardJdbcRepository(mockTemplate);
+        
+        com.sentinelx.common.service.RetryableReadService mockRetry = mock(com.sentinelx.common.service.RetryableReadService.class);
+        when(mockRetry.executeRead(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(1);
+            return callable.call();
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(testRepository, "retryableReadService", mockRetry);
 
         // Verify that the exception is propagated (not swallowed)
         assertThatThrownBy(() -> testRepository.getSystemSummary())

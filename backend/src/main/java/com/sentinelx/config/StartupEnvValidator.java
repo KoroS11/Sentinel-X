@@ -14,6 +14,7 @@ import java.util.List;
 @Slf4j
 @Component
 @Order(1)
+@org.springframework.context.annotation.Profile("!test")
 @RequiredArgsConstructor
 public class StartupEnvValidator implements ApplicationRunner {
 

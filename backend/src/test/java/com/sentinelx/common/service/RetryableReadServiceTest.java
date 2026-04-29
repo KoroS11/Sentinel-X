@@ -55,12 +55,18 @@ class RetryableReadServiceTest {
         Map<Class<? extends Throwable>, org.springframework.retry.RetryPolicy> policyMap = new HashMap<>();
         policyMap.put(DataIntegrityViolationException.class, new NeverRetryPolicy());
 
-        retryPolicy.setPolicyMap(policyMap);
-
         // Default policy: retry transient failures up to 3 times
         SimpleRetryPolicy defaultRetryPolicy = new SimpleRetryPolicy();
         defaultRetryPolicy.setMaxAttempts(3);
-        retryPolicy.setDefaultPolicy(defaultRetryPolicy);
+
+        retryPolicy.setExceptionClassifier(throwable -> {
+            for (Map.Entry<Class<? extends Throwable>, org.springframework.retry.RetryPolicy> entry : policyMap.entrySet()) {
+                if (entry.getKey().isAssignableFrom(throwable.getClass())) {
+                    return entry.getValue();
+                }
+            }
+            return defaultRetryPolicy;
+        });
 
         realRetryTemplate.setRetryPolicy(retryPolicy);
 

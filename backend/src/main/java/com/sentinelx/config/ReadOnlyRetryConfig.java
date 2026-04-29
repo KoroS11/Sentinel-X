@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.retry.RetryCallback;
 import org.springframework.retry.RetryContext;
 import org.springframework.retry.RetryListener;
 import org.springframework.retry.annotation.EnableRetry;
@@ -49,12 +50,18 @@ public class ReadOnlyRetryConfig {
         policyMap.put(DataIntegrityViolationException.class, new NeverRetryPolicy());
         policyMap.put(BadSqlGrammarException.class, new NeverRetryPolicy());
 
-        retryPolicy.setPolicyMap(policyMap);
-
-        // Default policy for retryable exceptions: DataAccessException, TransientDataAccessException
+        // Default policy for retryable exceptions
         SimpleRetryPolicy defaultRetryPolicy = new SimpleRetryPolicy();
         defaultRetryPolicy.setMaxAttempts(maxAttempts);
-        retryPolicy.setDefaultPolicy(defaultRetryPolicy);
+
+        retryPolicy.setExceptionClassifier(throwable -> {
+            for (Map.Entry<Class<? extends Throwable>, org.springframework.retry.RetryPolicy> entry : policyMap.entrySet()) {
+                if (entry.getKey().isAssignableFrom(throwable.getClass())) {
+                    return entry.getValue();
+                }
+            }
+            return defaultRetryPolicy;
+        });
 
         retryTemplate.setRetryPolicy(retryPolicy);
 

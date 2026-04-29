@@ -135,7 +135,7 @@ class RiskScoreServiceTest {
         Role role = roleRepository.findByName(RoleType.EMPLOYEE).orElseGet(() -> {
             Role newRole = new Role();
             newRole.setName(RoleType.EMPLOYEE);
-            return roleRepository.save(newRole);
+            return roleRepository.saveAndFlush(newRole);
         });
 
         User user = new User();

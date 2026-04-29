@@ -49,7 +49,12 @@ class SecurityConfigTest {
 
     @Test
     void healthEndpointIsPublic() throws Exception {
-        when(healthService.isDatabaseConnected()).thenReturn(true);
+        when(healthService.getDbHealthResult())
+            .thenReturn(com.sentinelx.common.dto.DbHealthResult.builder()
+                .status("UP")
+                .dbReachable(true)
+                .dbLatencyMs(10L)
+                .build());
 
         mockMvc.perform(get("/health"))
             .andExpect(status().isOk());
