@@ -34,3 +34,7 @@ build/
 
 ### Local secrets ###
 secrets.local.properties
+
+# Crash logs
+hs_err_pid*.log
+replay_pid*.log

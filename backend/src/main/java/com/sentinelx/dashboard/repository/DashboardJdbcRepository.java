@@ -68,10 +68,10 @@ public class DashboardJdbcRepository {
 
     /**
      * Retrieves the top risky users based on their latest risk score.
-     * 
-     * Uses PostgreSQL-specific DISTINCT ON to get latest score per user.
-     * Results ordered by score descending.
-     * 
+     *
+     * Uses a correlated subquery to select the latest score per user.
+     * Compatible with H2 (test) and PostgreSQL (production).
+     *
      * @param limit maximum number of users to return
      * @return list of maps with userId, username, and latestScore
      * @throws DataAccessException if query fails
@@ -80,11 +80,16 @@ public class DashboardJdbcRepository {
         log.debug("DashboardJdbcRepository.getTopRiskyUsers called with limit={}", limit);
 
         try {
+            // Correlated subquery — works on H2 and PostgreSQL (no DISTINCT ON)
             String sql = "SELECT u.id AS userId, u.username, rs.score AS latestScore " +
                     "FROM users u " +
-                    "JOIN (SELECT DISTINCT ON (user_id) user_id, score " +
-                    "      FROM risk_scores " +
-                    "      ORDER BY user_id, calculated_at DESC) rs ON rs.user_id = u.id " +
+                    "JOIN (SELECT r1.user_id, r1.score " +
+                    "      FROM risk_scores r1 " +
+                    "      WHERE r1.calculated_at = (" +
+                    "          SELECT MAX(r2.calculated_at) " +
+                    "          FROM risk_scores r2 " +
+                    "          WHERE r2.user_id = r1.user_id" +
+                    "      )) rs ON rs.user_id = u.id " +
                     "ORDER BY rs.score DESC " +
                     "LIMIT :limit";
 
@@ -147,10 +152,12 @@ public class DashboardJdbcRepository {
         try {
             Instant cutoff = Instant.now().minus(lastNDays, ChronoUnit.DAYS);
 
-            String sql = "SELECT DATE(created_at) AS alertDate, COUNT(*) AS cnt " +
+            // CAST(created_at AS DATE) is standard SQL — compatible with H2 and PostgreSQL
+            // GROUP BY expression repeated (not alias) for H2 compatibility
+            String sql = "SELECT CAST(created_at AS DATE) AS alertDate, COUNT(*) AS cnt " +
                     "FROM alerts " +
                     "WHERE created_at >= :cutoff " +
-                    "GROUP BY alertDate ORDER BY alertDate ASC";
+                    "GROUP BY CAST(created_at AS DATE) ORDER BY CAST(created_at AS DATE) ASC";
 
             MapSqlParameterSource params = new MapSqlParameterSource("cutoff", cutoff);
 
