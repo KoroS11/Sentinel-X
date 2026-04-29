@@ -19,6 +19,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -35,6 +36,7 @@ import org.springframework.test.web.servlet.MvcResult;
     "jwt.expiration-ms=3600000",
     "jwt.refresh-expiration-ms=604800000"
 })
+@ActiveProfiles("test")
 class SecurityConfigTest {
 
     @Autowired

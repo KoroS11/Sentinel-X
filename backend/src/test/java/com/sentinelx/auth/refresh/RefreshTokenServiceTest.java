@@ -22,6 +22,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest(properties = {
     "spring.flyway.enabled=false",
@@ -30,6 +31,7 @@ import org.springframework.test.context.TestPropertySource;
 @Import(RefreshTokenService.class)
 @EnableConfigurationProperties(RefreshTokenProperties.class)
 @TestPropertySource(properties = "jwt.refresh-expiration-ms=86400000")
+@ActiveProfiles("test")
 class RefreshTokenServiceTest {
 
     @Autowired
