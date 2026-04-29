@@ -8,7 +8,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
-import org.springframework.retry.RetryCallback;
 import org.springframework.retry.RetryContext;
 import org.springframework.retry.RetryListener;
 import org.springframework.retry.annotation.EnableRetry;
@@ -42,27 +41,9 @@ public class ReadOnlyRetryConfig {
     public RetryTemplate readOnlyRetryTemplate() {
         RetryTemplate retryTemplate = new RetryTemplate();
 
-        // Configure exception classifier policy
-        ExceptionClassifierRetryPolicy retryPolicy = new ExceptionClassifierRetryPolicy();
-
-        // Non-retryable exceptions map to NeverRetryPolicy
-        Map<Class<? extends Throwable>, org.springframework.retry.RetryPolicy> policyMap = new HashMap<>();
-        policyMap.put(DataIntegrityViolationException.class, new NeverRetryPolicy());
-        policyMap.put(BadSqlGrammarException.class, new NeverRetryPolicy());
-
-        // Default policy for retryable exceptions
-        SimpleRetryPolicy defaultRetryPolicy = new SimpleRetryPolicy();
-        defaultRetryPolicy.setMaxAttempts(maxAttempts);
-
-        retryPolicy.setExceptionClassifier(throwable -> {
-            for (Map.Entry<Class<? extends Throwable>, org.springframework.retry.RetryPolicy> entry : policyMap.entrySet()) {
-                if (entry.getKey().isAssignableFrom(throwable.getClass())) {
-                    return entry.getValue();
-                }
-            }
-            return defaultRetryPolicy;
-        });
-
+        // Configure simple retry policy with exponential backoff
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(maxAttempts);
         retryTemplate.setRetryPolicy(retryPolicy);
 
         // Configure exponential backoff policy
@@ -72,38 +53,6 @@ public class ReadOnlyRetryConfig {
         backOffPolicy.setMaxInterval(maxInterval);
         retryTemplate.setBackOffPolicy(backOffPolicy);
 
-        // Register retry listener for logging
-        retryTemplate.registerListener(new ReadOnlyRetryListener(maxAttempts));
-
         return retryTemplate;
-    }
-
-    @Slf4j
-    private static class ReadOnlyRetryListener implements RetryListener {
-
-        private final int maxAttempts;
-
-        public ReadOnlyRetryListener(int maxAttempts) {
-            this.maxAttempts = maxAttempts;
-        }
-
-        @Override
-        public <T, E extends Throwable> boolean open(RetryContext context, RetryCallback<T, E> callback) {
-            return true;
-        }
-
-        @Override
-        public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-        }
-
-        @Override
-        public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-            int attempt = context.getRetryCount() + 1;
-            String operationName = context.getAttribute("operationName") != null ?
-                    context.getAttribute("operationName").toString() : "UNKNOWN";
-
-            log.warn("Read-only DB retry attempt {} of {} — operation: {}",
-                    attempt, maxAttempts, operationName);
-        }
     }
 }
