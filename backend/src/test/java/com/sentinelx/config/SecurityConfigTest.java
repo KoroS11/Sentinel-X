@@ -7,7 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sentinelx.auth.jwt.JwtTokenProvider;
 import com.sentinelx.auth.security.CustomUserDetailsService;
+import com.sentinelx.common.dto.DbHealthResult;
 import com.sentinelx.common.service.HealthService;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -33,6 +36,7 @@ import org.springframework.test.web.servlet.MvcResult;
     "jwt.expiration-ms=3600000",
     "jwt.refresh-expiration-ms=604800000"
 })
+@ActiveProfiles("test")
 class SecurityConfigTest {
 
     @Autowired
@@ -49,7 +53,20 @@ class SecurityConfigTest {
 
     @Test
     void healthEndpointIsPublic() throws Exception {
-        when(healthService.isDatabaseConnected()).thenReturn(true);
+        when(healthService.getDbHealthResult()).thenReturn(
+                DbHealthResult.builder()
+                        .status("UP")
+                        .dbReachable(true)
+                        .dbLatencyMs(5)
+                        .message("healthy")
+                        .checkedAt(Instant.now())
+                        .poolName("test-pool")
+                        .activeConnections(1)
+                        .idleConnections(4)
+                        .totalConnections(5)
+                        .pendingThreads(0)
+                        .build()
+        );
 
         mockMvc.perform(get("/health"))
             .andExpect(status().isOk());

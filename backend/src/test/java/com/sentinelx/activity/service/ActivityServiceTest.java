@@ -19,12 +19,14 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest(properties = {
     "spring.flyway.enabled=false",
     "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @Import(ActivityService.class)
+@ActiveProfiles("test")
 class ActivityServiceTest {
 
     private static final String ACTION_LOGIN = "LOGIN";
@@ -133,7 +135,7 @@ class ActivityServiceTest {
         Role role = roleRepository.findByName(RoleType.EMPLOYEE).orElseGet(() -> {
             Role newRole = new Role();
             newRole.setName(RoleType.EMPLOYEE);
-            return roleRepository.save(newRole);
+            return roleRepository.saveAndFlush(newRole);
         });
 
         User user = new User();

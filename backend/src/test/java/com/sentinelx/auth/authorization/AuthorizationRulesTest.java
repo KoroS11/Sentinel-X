@@ -28,9 +28,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class AuthorizationRulesTest {
 
     private static final String TEST_SECRET =
@@ -161,7 +163,7 @@ class AuthorizationRulesTest {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role createdRole = new Role();
             createdRole.setName(roleType);
-            return roleRepository.save(createdRole);
+            return roleRepository.saveAndFlush(createdRole);
         });
 
         User user = new User();

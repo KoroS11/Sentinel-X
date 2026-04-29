@@ -32,6 +32,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:emailverificationtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.datasource.driver-class-name=org.h2.Driver",
@@ -44,6 +46,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
     "jwt.refresh-expiration-ms=604800000"
 })
 @AutoConfigureMockMvc
+@Transactional
 class EmailVerificationServiceTest {
 
     @Autowired
@@ -85,7 +88,7 @@ class EmailVerificationServiceTest {
         employeeRole = roleRepository.findByName(RoleType.EMPLOYEE).orElseGet(() -> {
             Role role = new Role();
             role.setName(RoleType.EMPLOYEE);
-            return roleRepository.save(role);
+            return roleRepository.saveAndFlush(role);
         });
     }
 

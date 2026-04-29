@@ -1,21 +1,20 @@
 package com.sentinelx.common.service;
 
+import com.sentinelx.common.dto.DbHealthResult;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class HealthService {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final ConnectionValidator connectionValidator;
+
+    public DbHealthResult getDbHealthResult() {
+        return connectionValidator.validate();
+    }
 
     public boolean isDatabaseConnected() {
-        try {
-            Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-            return result != null && result == 1;
-        } catch (Exception ex) {
-            return false;
-        }
+        return getDbHealthResult().dbReachable();
     }
 }

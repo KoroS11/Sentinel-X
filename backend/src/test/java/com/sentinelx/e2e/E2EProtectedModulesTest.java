@@ -47,6 +47,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@org.springframework.transaction.annotation.Transactional
 class E2EProtectedModulesTest {
 
     private static final String DB_URL = "jdbc:h2:mem:e2eprotectedmodulestest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
@@ -249,7 +250,7 @@ class E2EProtectedModulesTest {
         Role role = roleRepository.findByName(roleType).orElseGet(() -> {
             Role created = new Role();
             created.setName(roleType);
-            return roleRepository.save(created);
+            return roleRepository.saveAndFlush(created);
         });
 
         User user = new User();

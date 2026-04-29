@@ -1,8 +1,7 @@
 package com.sentinelx.common.controller;
 
+import com.sentinelx.common.dto.DbHealthResult;
 import com.sentinelx.common.service.HealthService;
-import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,13 +20,25 @@ public class HealthController {
 
     @GetMapping
     @PreAuthorize("permitAll()")
-    public ResponseEntity<Map<String, Object>> health() {
-        boolean dbConnected = healthService.isDatabaseConnected();
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("status", dbConnected ? "UP" : "DEGRADED");
-        response.put("application", "UP");
-        response.put("database", dbConnected ? "CONNECTED" : "DISCONNECTED");
-        response.put("timestamp", Instant.now().toString());
-        return ResponseEntity.status(dbConnected ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    public ResponseEntity<DbHealthResult> health() {
+        DbHealthResult result = healthService.getDbHealthResult();
+        HttpStatus status = "DOWN".equals(result.status()) ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
+        return ResponseEntity.status(status).body(result);
+    }
+
+    @GetMapping("/live")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Map<String, String>> liveness() {
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "SentinelX"));
+    }
+
+    @GetMapping("/ready")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Map<String, Object>> readiness() {
+        DbHealthResult result = healthService.getDbHealthResult();
+        HttpStatus status = "DOWN".equals(result.status()) ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
+        return ResponseEntity.status(status).body(
+                Map.of("status", result.status(), "dbLatencyMs", result.dbLatencyMs())
+        );
     }
 }
