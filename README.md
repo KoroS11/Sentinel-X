@@ -1,4 +1,4 @@
-﻿# SentinelX Backend Documentation
+# SentinelX Backend Documentation
 
 ## Section 1 - Project Overview
 
@@ -1311,4 +1311,110 @@ Dashboard summary response:
 - Always merge using --no-ff to preserve integration history.
 - Never force push to main.
 - Run full test suite before merging into develop.
+
+## Section 10 - SentinelX Terminal User Interface (TUI)
+
+SentinelX includes a fully interactive Terminal User Interface (TUI) built with [Rich](https://github.com/Textualize/rich) and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit). It provides a live simulation of the entire backend — authentication flows, user management, risk scoring, alert triage, and architectural walkthroughs — all from your terminal.
+
+### Prerequisites
+
+~~~bash
+pip install rich prompt_toolkit
+~~~
+
+### Running the TUI
+
+~~~bash
+python sentinelx_tui.py
+~~~
+
+### Features
+
+- **Login / Register / Logout** with JWT token simulation
+- **User Management** — view, edit, suspend, lock, delete users
+- **Risk Monitoring** — live risk recalculation with sparkline trends
+- **Alert Triage** — inbox filtering, assignment, status transitions (FSM-enforced)
+- **Dashboard** — real-time stats, system feed, audit logs, health checks
+- **Architecture Viewer** — 7-page interactive walkthrough of system design
+- **Command Palette** — quick-access shortcut for power users
+
+---
+
+### TUI Screenshots
+
+#### Splash Screen
+
+<p align="center">
+  <img src="screenshots/01-splash-screen.png" alt="Splash Screen" width="700" />
+</p>
+
+#### Main Menu
+
+<p align="center">
+  <img src="screenshots/04-main-menu.png" alt="Main Menu" width="400" />
+</p>
+
+#### Login Prompt
+
+<p align="center">
+  <img src="screenshots/05-login-prompt.png" alt="Login Prompt" width="400" />
+</p>
+
+#### Login Pipeline
+
+<p align="center">
+  <img src="screenshots/06-login-pipeline.png" alt="Login Pipeline" width="700" />
+</p>
+
+#### Admin Dashboard
+
+<p align="center">
+  <img src="screenshots/07-admin-dashboard.png" alt="Admin Dashboard" width="700" />
+</p>
+
+#### System Architecture Viewer
+
+<p align="center">
+  <img src="screenshots/02-system-architecture.png" alt="System Architecture" width="700" />
+</p>
+
+#### Database Schema ERD
+
+<p align="center">
+  <img src="screenshots/03-database-schema-erd.png" alt="Database Schema ERD" width="700" />
+</p>
+
+#### E2E Authentication Flow Test
+
+<p align="center">
+  <img src="screenshots/08-e2e-auth-flow.png" alt="E2E Auth Flow" width="700" />
+</p>
+
+---
+
+### Architecture Diagrams (SVG)
+
+#### High-Level Architecture
+
+<p align="center">
+  <img src="screenshots/architecture-overview.svg" alt="Architecture Overview" width="700" />
+</p>
+
+#### Request Lifecycle
+
+<p align="center">
+  <img src="screenshots/request-lifecycle.svg" alt="Request Lifecycle" width="700" />
+</p>
+
+#### JWT Authentication Flow
+
+<p align="center">
+  <img src="screenshots/authentication-flows.svg" alt="Authentication Flows" width="700" />
+</p>
+
+#### Interactive Simulation Options
+
+<p align="center">
+  <img src="screenshots/simulation-options.svg" alt="Simulation Options" width="700" />
+</p>
 
